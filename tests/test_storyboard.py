@@ -31,6 +31,7 @@ class StoryboardTests(unittest.TestCase):
                 {"path": "a.mp4", "start": 0, "end": 2},
                 {"path": "b.mp4", "start": 0, "end": 2},
             ],
+            wpm=300, min_scene_seconds=0.1,
         )
         synced = sync_storyboard_to_duration(result, 10.0)
         durations = [clip["output_duration"] for clip in synced["edit_plan"]["clips"]]
