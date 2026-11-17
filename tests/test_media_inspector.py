@@ -56,6 +56,29 @@ class MediaInspectorTests(unittest.TestCase):
             self.assertEqual(result["assets"][0]["tags"], [])
             self.assertTrue((output / "media_catalog.json").is_file())
 
+    def test_segments_long_video_into_time_windows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "media"
+            source.mkdir()
+            (source / "long.mp4").touch()
+            output = Path(directory) / "report"
+            metadata = {"duration": 8.0, "width": 1280, "height": 720, "frame_rate": "30/1", "codec": "h264"}
+            calls = []
+            def fake_frames(video, destination, **kwargs):
+                calls.append(kwargs["start_time"])
+                folder = Path(destination)
+                folder.mkdir(parents=True, exist_ok=True)
+                frame = folder / "frame.jpg"
+                frame.write_bytes(b"jpg")
+                return [str(frame)]
+            with patch("video_editor.media_inspector.shutil.which", return_value="/usr/bin/tool"), \
+                 patch("video_editor.media_inspector.probe_video", return_value=metadata), \
+                 patch("video_editor.media_inspector.extract_sample_frames", side_effect=fake_frames):
+                result = inspect_media_directory(source, output, samples=1, segment_duration=3)
+            self.assertEqual([(a["start"], a["end"]) for a in result["assets"]],
+                             [(0.0, 3.0), (3.0, 6.0), (6.0, 8.0)])
+            self.assertEqual(calls, [0.0, 3.0, 6.0])
+
     def test_rejects_invalid_sample_count(self):
         with self.assertRaises(MediaInspectionError):
             extract_sample_frames("clip.mp4", "frames", duration=4, samples=0)
