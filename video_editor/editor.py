@@ -90,12 +90,36 @@ def build_ffmpeg_command(plan: dict[str, Any]) -> list[str]:
         )
 
     labels = "".join(f"[v{i}]" for i in range(len(plan["clips"])))
-    filters.append(f"{labels}concat=n={len(plan['clips'])}:v=1:a=0[vout]")
+    filters.append(f"{labels}concat=n={len(plan['clips'])}:v=1:a=0[vconcat]")
+
+    total_duration = sum(float(c["end"]) - float(c.get("start", 0)) for c in plan["clips"])
+    fade_in = float(output_cfg.get("fade_in", 0))
+    fade_out = float(output_cfg.get("fade_out", 0))
+    video_filters = []
+    if fade_in:
+        video_filters.append(f"fade=t=in:st=0:d={fade_in}")
+    if fade_out:
+        video_filters.append(f"fade=t=out:st={total_duration - fade_out}:d={fade_out}")
+    filters.append(
+        f"[vconcat]{','.join(video_filters)}[vout]" if video_filters
+        else "[vconcat]null[vout]"
+    )
     video_map = "[vout]"
 
     if plan.get("audio"):
         audio = _require_file(plan["audio"], "audio")
         command += ["-i", str(audio)]
+        audio_filters = []
+        audio_fade_in = float(output_cfg.get("audio_fade_in", 0))
+        audio_fade_out = float(output_cfg.get("audio_fade_out", 0))
+        if audio_fade_in:
+            audio_filters.append(f"afade=t=in:st=0:d={audio_fade_in}")
+        if audio_fade_out:
+            audio_filters.append(
+                f"afade=t=out:st={total_duration - audio_fade_out}:d={audio_fade_out}"
+            )
+        if audio_filters:
+            filters.append(f"[{len(plan['clips'])}:a:0]{','.join(audio_filters)}[aout]")
 
     if plan.get("subtitles"):
         subtitles = _require_file(plan["subtitles"], "subtitles")
@@ -104,7 +128,11 @@ def build_ffmpeg_command(plan: dict[str, Any]) -> list[str]:
 
     command += ["-filter_complex", ";".join(filters), "-map", video_map]
     if plan.get("audio"):
-        command += ["-map", f"{len(plan['clips'])}:a:0", "-c:a", "aac", "-b:a", "192k", "-shortest"]
+        audio_map = (
+            "[aout]" if any(output_cfg.get(k, 0) for k in ("audio_fade_in", "audio_fade_out"))
+            else f"{len(plan['clips'])}:a:0"
+        )
+        command += ["-map", audio_map, "-c:a", "aac", "-b:a", "192k", "-shortest"]
     else:
         command += ["-an"]
 
