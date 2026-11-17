@@ -55,3 +55,22 @@ API keys or media files containing private information.
 Input paths in an edit plan must refer to local files available to the process.
 The renderer invokes FFmpeg with an argument array (not through a shell) and
 validates required files before rendering.
+
+## CLI and tests
+
+The same renderer is available as a command-line module:
+
+```bash
+python -m video_editor edit_plan.json
+python -m video_editor edit_plan.json --timeout 1800
+```
+
+Run the unit tests from the repository root:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+The tests cover plan validation, vertical output command construction, and
+missing-input handling. They do not replace an end-to-end render test with
+real media files and a local FFmpeg installation.
