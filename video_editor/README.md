@@ -423,6 +423,14 @@ but embeddings cannot verify what is actually happening in a video. BLIP only
 samples still frames, and semantic similarity can still select an incorrect
 scene. Inspect the sample frames and review every match before rendering.
 
+Each scene match report also includes a confidence label (high, medium, or
+low), the selected source time range, the catalog description/tags, and up to
+three ranked alternatives. Confidence is a simple score band, not a calibrated
+probability. Use the alternatives to compare nearby candidates and manually
+replace a weak selection before rendering. The matcher still selects its top
+eligible candidate automatically; it does not visually verify the footage or
+optimize the entire sequence as a human editor would.
+
 
 ## Cross-scene transitions
 
