@@ -26,6 +26,7 @@ class PipelineTests(unittest.TestCase):
 
             with patch("video_editor.pipeline.generate_voiceover", side_effect=fake_voice), \
                  patch("video_editor.pipeline.transcribe_to_srt", side_effect=fake_transcribe), \
+                 patch("video_editor.pipeline.probe_audio_duration", return_value=6.25), \\
                  patch("video_editor.pipeline.render_video", side_effect=fake_render):
                 result = run_pipeline(
                     "Gurita hidup di laut. Gurita punya tentakel.",
@@ -36,6 +37,9 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(result["status"], "rendered")
             self.assertTrue(Path(result["edit_plan"]).is_file())
             self.assertEqual(result["video"], "final.mp4")
+            import json
+            plan = json.loads(Path(result["edit_plan"]).read_text(encoding="utf-8"))
+            self.assertAlmostEqual(sum(clip["output_duration"] for clip in plan["clips"]), 6.25, places=3)
 
     def test_auto_caption_uses_captioned_inspector_catalog(self):
         catalog = {
@@ -63,6 +67,7 @@ class PipelineTests(unittest.TestCase):
             with patch("video_editor.pipeline.caption_media_catalog", return_value=captioned) as caption_mock, \
                  patch("video_editor.pipeline.generate_voiceover", side_effect=fake_voice), \
                  patch("video_editor.pipeline.transcribe_to_srt", side_effect=fake_transcribe), \
+                 patch("video_editor.pipeline.probe_audio_duration", return_value=3.0), \\
                  patch("video_editor.pipeline.render_video"):
                 result = run_pipeline(
                     "Gurita berenang di laut.", catalog,
@@ -87,6 +92,7 @@ class PipelineTests(unittest.TestCase):
                 return str(target)
             with patch("video_editor.pipeline.generate_voiceover", side_effect=fake_voice), \
                  patch("video_editor.pipeline.transcribe_to_srt", side_effect=fake_transcribe), \
+                 patch("video_editor.pipeline.probe_audio_duration", return_value=3.0), \\
                  patch("video_editor.pipeline.render_video") as render_mock:
                 result = run_pipeline("Gurita hidup di laut.", catalog, work_dir=directory, render=False)
             render_mock.assert_not_called()
