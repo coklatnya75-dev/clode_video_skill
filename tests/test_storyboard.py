@@ -1,6 +1,6 @@
 import unittest
 
-from video_editor.storyboard import StoryboardError, build_storyboard, split_script, sync_storyboard_to_duration
+from video_editor.storyboard import StoryboardError, build_storyboard, split_script, sync_storyboard_to_duration, sync_storyboard_to_srt
 
 
 class StoryboardTests(unittest.TestCase):
@@ -38,6 +38,42 @@ class StoryboardTests(unittest.TestCase):
         self.assertAlmostEqual(sum(durations), 10.0, places=3)
         self.assertAlmostEqual(durations[0] / durations[1], 2.0, places=2)
         self.assertEqual(synced["voiceover_duration_seconds"], 10.0)
+
+
+    def test_syncs_scene_boundaries_using_srt_cue_timestamps(self):
+        import tempfile
+        from pathlib import Path
+
+        result = build_storyboard(
+            "Gurita hidup di laut. Gurita punya tentakel.",
+            [
+                {"path": "a.mp4", "start": 0, "end": 2},
+                {"path": "b.mp4", "start": 0, "end": 2},
+            ],
+        )
+        srt = (
+            "1\\n00:00:00,000 --> 00:00:02,000\\nGurita hidup di laut.\\n\\n"
+            "2\\n00:00:02,200 --> 00:00:06,000\\nGurita punya tentakel.\\n"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "voice.srt"
+            path.write_text(srt, encoding="utf-8")
+            synced = sync_storyboard_to_srt(result, str(path), 6.0)
+        clips = synced["edit_plan"]["clips"]
+        self.assertAlmostEqual(clips[0]["output_duration"], 2.0, places=2)
+        self.assertAlmostEqual(clips[1]["output_duration"], 4.0, places=2)
+        self.assertEqual(synced["duration_sync_method"], "srt_word_position")
+
+    def test_rejects_srt_without_valid_cues(self):
+        import tempfile
+        from pathlib import Path
+
+        result = build_storyboard("Satu kalimat.", [{"path": "a.mp4", "start": 0, "end": 2}])
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "empty.srt"
+            path.write_text("tidak ada timestamp", encoding="utf-8")
+            with self.assertRaises(StoryboardError):
+                sync_storyboard_to_srt(result, str(path), 3.0)
 
     def test_rejects_non_positive_voiceover_duration(self):
         result = build_storyboard("Satu kalimat.", [{"path": "a.mp4", "start": 0, "end": 2}])
