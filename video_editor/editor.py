@@ -65,6 +65,17 @@ def validate_plan(plan: dict[str, Any]) -> None:
     preset = output.get("preset", "medium")
     if not isinstance(preset, str) or not preset:
         raise VideoEditError("output.preset must be a non-empty string.")
+    duration = sum(float(c["end"]) - float(c.get("start", 0)) for c in clips)
+    for key in ("fade_in", "fade_out", "audio_fade_in", "audio_fade_out"):
+        value = output.get(key, 0)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+            raise VideoEditError(f"output.{key} must be a non-negative number.")
+        if value > duration:
+            raise VideoEditError(f"output.{key} cannot exceed the total video duration.")
+    if output.get("fade_in", 0) + output.get("fade_out", 0) > duration:
+        raise VideoEditError("Video fade_in and fade_out cannot overlap.")
+    if output.get("audio_fade_in", 0) + output.get("audio_fade_out", 0) > duration:
+        raise VideoEditError("Audio fade_in and fade_out cannot overlap.")
 
 
 def build_ffmpeg_command(plan: dict[str, Any]) -> list[str]:
