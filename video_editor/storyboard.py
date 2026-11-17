@@ -127,6 +127,86 @@ def sync_storyboard_to_duration(storyboard: dict[str, Any], voiceover_seconds: f
     return storyboard
 
 
+
+def _srt_seconds(timestamp: str) -> float:
+    """Convert an SRT timestamp (HH:MM:SS,mmm) to seconds."""
+    hours, minutes, remainder = timestamp.replace(",", ".").split(":")
+    return int(hours) * 3600 + int(minutes) * 60 + float(remainder)
+
+
+def sync_storyboard_to_srt(
+    storyboard: dict[str, Any],
+    srt_path: str,
+    voiceover_seconds: float | None = None,
+) -> dict[str, Any]:
+    """Align scene boundaries to Whisper subtitle cue timing using word positions."""
+    srt_file = Path(srt_path).expanduser()
+    if not srt_file.is_file():
+        raise StoryboardError(f"Subtitle file not found: {srt_file}")
+    raw = srt_file.read_text(encoding="utf-8-sig")
+    cue_pattern = re.compile(
+        r"(?m)^(\\d{2}:\\d{2}:\\d{2}[,.]\\d{3})\\s*-->\\s*"
+        r"(\\d{2}:\\d{2}:\\d{2}[,.]\\d{3}).*$"
+    )
+    cues = []
+    for match in cue_pattern.finditer(raw):
+        block_end = raw.find("\\n\\n", match.end())
+        block = raw[match.end():] if block_end < 0 else raw[match.end():block_end]
+        words = re.findall(r"\\w+", block, flags=re.UNICODE)
+        start, end = _srt_seconds(match.group(1)), _srt_seconds(match.group(2))
+        if words and end > start:
+            cues.append({"start": start, "end": end, "word_count": len(words)})
+    scenes = storyboard.get("scenes")
+    clips = storyboard.get("edit_plan", {}).get("clips")
+    if not cues:
+        raise StoryboardError("SRT contains no valid timed subtitle cues.")
+    if not isinstance(scenes, list) or not scenes or not isinstance(clips, list) or len(scenes) != len(clips):
+        raise StoryboardError("Storyboard scenes and edit-plan clips must have matching entries.")
+    scene_counts = [max(1, len(re.findall(r"\\w+", str(scene.get("narration", "")), flags=re.UNICODE))) for scene in scenes]
+    total_scene_words = sum(scene_counts)
+    total_cue_words = sum(cue["word_count"] for cue in cues)
+    if total_scene_words <= 0 or total_cue_words <= 0:
+        raise StoryboardError("Scene narration and SRT must contain recognizable words.")
+    duration = float(voiceover_seconds) if voiceover_seconds is not None else cues[-1]["end"]
+    if duration <= 0 or cues[-1]["end"] > duration + 0.5:
+        raise StoryboardError("SRT cue timing is inconsistent with voice-over duration.")
+
+    def locate_boundary(target_word: float) -> float:
+        consumed = 0
+        for cue in cues:
+            next_consumed = consumed + cue["word_count"]
+            if target_word <= next_consumed:
+                fraction = min(1.0, max(0.0, (target_word - consumed) / cue["word_count"]))
+                return cue["start"] + fraction * (cue["end"] - cue["start"])
+            consumed = next_consumed
+        return cues[-1]["end"]
+
+    boundaries = [0.0]
+    cumulative = 0
+    for count in scene_counts[:-1]:
+        cumulative += count
+        boundaries.append(locate_boundary(total_cue_words * cumulative / total_scene_words))
+    boundaries.append(duration)
+    # Enforce strictly increasing boundaries for very short or imperfect transcripts.
+    for index in range(1, len(boundaries)):
+        boundaries[index] = max(boundaries[index], boundaries[index - 1] + 0.001)
+    if boundaries[-1] > duration:
+        boundaries[-1] = duration
+        for index in range(len(boundaries) - 2, -1, -1):
+            boundaries[index] = min(boundaries[index], boundaries[index + 1] - 0.001)
+    for index, (scene, clip) in enumerate(zip(scenes, clips)):
+        start, end = boundaries[index], boundaries[index + 1]
+        scene["voiceover_start_seconds"] = round(start, 3)
+        scene["voiceover_end_seconds"] = round(end, 3)
+        scene["synchronized_voiceover_seconds"] = round(end - start, 3)
+        scene["duration_note"] = "Scene boundary estimated from Whisper SRT cue timing and narration word position."
+        clip["output_duration"] = round(end - start, 3)
+    storyboard["voiceover_duration_seconds"] = round(duration, 3)
+    storyboard["duration_sync"] = "Whisper SRT cue timing mapped to script scene word positions."
+    storyboard["duration_sync_method"] = "srt_word_position"
+    return storyboard
+
+
 def create_storyboard_file(
     script_path: str,
     media_manifest_path: str,
