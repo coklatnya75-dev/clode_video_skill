@@ -84,7 +84,7 @@ class MediaMatcherTests(unittest.TestCase):
             {"scene": 1, "narration": "Gurita berenang"},
             {"scene": 2, "narration": "Gurita berenang"},
         ]
-        result = match_media_to_scenes(scenes, catalog)
+        result = match_media_to_scenes(scenes, catalog, allow_reuse=True)
         self.assertEqual(result["matches"][0]["shot_type"], "wide")
         self.assertEqual(result["matches"][1]["shot_type"], "close_up")
         self.assertGreater(result["matches"][1]["shot_diversity_bonus"], 0)
