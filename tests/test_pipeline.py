@@ -60,9 +60,9 @@ class PipelineTests(unittest.TestCase):
                      "tags": ["gurita"], "description": "gurita berenang"}
                 ]
             }
-            with patch("video_editor.pipeline.caption_media_catalog", return_value=captioned) as caption_mock, \\
-                 patch("video_editor.pipeline.generate_voiceover", side_effect=fake_voice), \\
-                 patch("video_editor.pipeline.transcribe_to_srt", side_effect=fake_transcribe), \\
+            with patch("video_editor.pipeline.caption_media_catalog", return_value=captioned) as caption_mock, \
+                 patch("video_editor.pipeline.generate_voiceover", side_effect=fake_voice), \
+                 patch("video_editor.pipeline.transcribe_to_srt", side_effect=fake_transcribe), \
                  patch("video_editor.pipeline.render_video"):
                 result = run_pipeline(
                     "Gurita berenang di laut.", catalog,
