@@ -65,7 +65,13 @@ def validate_plan(plan: dict[str, Any]) -> None:
     preset = output.get("preset", "medium")
     if not isinstance(preset, str) or not preset:
         raise VideoEditError("output.preset must be a non-empty string.")
-    clip_durations = [float(c["end"]) - float(c.get("start", 0)) for c in clips]
+    clip_durations = []
+    for index, clip in enumerate(clips):
+        source_duration = float(clip["end"]) - float(clip.get("start", 0))
+        target_duration = clip.get("output_duration", source_duration)
+        if isinstance(target_duration, bool) or not isinstance(target_duration, (int, float)) or target_duration <= 0:
+            raise VideoEditError(f"clips[{index}].output_duration must be a positive number.")
+        clip_durations.append(float(target_duration))
     transition_duration = output.get("transition_duration", 0)
     if isinstance(transition_duration, bool) or not isinstance(transition_duration, (int, float)) or transition_duration < 0:
         raise VideoEditError("output.transition_duration must be a non-negative number.")
@@ -110,14 +116,22 @@ def build_ffmpeg_command(plan: dict[str, Any]) -> list[str]:
         source = _require_file(clip["path"], f"clips[{i}]")
         command += ["-i", str(source)]
         start, end = float(clip.get("start", 0)), float(clip["end"])
-        filters.append(
-            f"[{i}:v]trim=start={start}:end={end},setpts=PTS-STARTPTS,"
-            f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+        source_duration = end - start
+        target_duration = float(clip.get("output_duration", source_duration))
+        used_duration = min(source_duration, target_duration)
+        video_filter = (
+            f"[{i}:v]trim=start={start}:duration={used_duration},setpts=PTS-STARTPTS"
+        )
+        if target_duration > source_duration:
+            video_filter += f",tpad=stop_mode=clone:stop_duration={target_duration - source_duration}"
+        video_filter += (
+            f",scale={width}:{height}:force_original_aspect_ratio=increase,"
             f"crop={width}:{height},fps={fps},setsar=1,format=yuv420p[v{i}]"
         )
+        filters.append(video_filter)
 
     transition_duration = float(output_cfg.get("transition_duration", 0))
-    clip_durations = [float(c["end"]) - float(c.get("start", 0)) for c in plan["clips"]]
+    clip_durations = [float(c.get("output_duration", float(c["end"]) - float(c.get("start", 0)))) for c in plan["clips"]]
     total_duration = sum(clip_durations) - transition_duration * (len(clip_durations) - 1)
     if transition_duration and len(clip_durations) > 1:
         previous_label = "v0"
