@@ -184,3 +184,46 @@ timing varies, and the planner does not measure clip duration or generate,
 understand, or automatically select media. Review scene pacing and paths before
 rendering. This milestone establishes a transparent, deterministic workflow;
 semantic AI scene matching is a later feature.
+
+
+## Tagged media matcher (keyword baseline)
+
+The next workflow stage can suggest clips for each storyboard scene using a
+catalog that you prepare. This first matcher is intentionally explainable: it
+compares words in each narration sentence with the catalog's `tags` and
+`description`, then writes a ranked-choice report and a media manifest.
+
+Example `media_catalog.json`:
+
+```json
+[
+  {
+    "path": "media/laut.mp4",
+    "start": 0,
+    "end": 5,
+    "tags": ["laut", "bawah laut", "ikan", "berenang"],
+    "description": "pemandangan terumbu karang dan kehidupan bawah laut"
+  },
+  {
+    "path": "media/gurita.mp4",
+    "start": 1,
+    "end": 7,
+    "tags": ["gurita", "hewan", "tentakel"],
+    "description": "gurita bergerak di dasar laut"
+  }
+]
+```
+
+Run after creating `storyboard.json`:
+
+```bash
+python -m video_editor.media_matcher storyboard.json media_catalog.json --output media_matches.json
+```
+
+The output contains per-scene suggestions, overlap scores, matched keywords,
+and a `media_manifest` that can be passed to the storyboard planner. The
+matcher does not inspect pixels, watch video, or understand visual context;
+it only compares user-entered metadata. Each asset is used at most once by
+default. Use `--allow-reuse` to permit reuse, and adjust
+`--minimum-score 0.05` only if you understand the trade-off. Every suggestion
+is flagged for human review before rendering.
