@@ -2,7 +2,7 @@
 
 A small FFmpeg-powered renderer for TikTok, YouTube Shorts, and Instagram Reels.
 It can trim clips, concatenate them in order, center-crop/pad-to-fill them into
-a vertical frame, apply optional video/audio fades, burn SRT subtitles, and add
+a vertical frame, apply optional transitions and video/audio fades, burn SRT subtitles, and add
 an external voice-over/music track.
 
 ## Requirements
@@ -415,3 +415,37 @@ keywords. This helps bridge Indonesian narration and English visual captions,
 but embeddings cannot verify what is actually happening in a video. BLIP only
 samples still frames, and semantic similarity can still select an incorrect
 scene. Inspect the sample frames and review every match before rendering.
+
+
+## Cross-scene transitions
+
+The renderer supports optional FFmpeg `xfade` transitions between adjacent
+clips. Add `transition_duration` (seconds) and a transition style to the
+`output` object:
+
+```json
+{
+  "clips": [
+    {"path": "media/scene-1.mp4", "start": 0, "end": 4},
+    {"path": "media/scene-2.mp4", "start": 2, "end": 7},
+    {"path": "media/scene-3.mp4", "start": 1, "end": 5}
+  ],
+  "output": {
+    "path": "output/shorts.mp4",
+    "transition": "fade",
+    "transition_duration": 0.4
+  }
+}
+```
+
+Supported styles are `fade`, `wipeleft`, `wiperight`, `wipeup`,
+`wipedown`, `slideleft`, `slideright`, `slideup`, `slidedown`,
+`circleopen`, `circleclose`, `dissolve`, and `pixelize`. The transition
+duration is an overlap: for three clips of 4, 5, and 4 seconds with 0.4-second
+transitions, the assembled video is 12.2 seconds, not 13 seconds. The duration
+must not exceed the length of any clip. Fade-in/fade-out positions are computed
+against the shortened final duration.
+
+Omit `transition_duration` or set it to `0` to retain hard cuts. Transitions
+are applied between every adjacent pair; per-cut transition customization is
+not implemented yet. FFmpeg builds with the `xfade` filter are required.
