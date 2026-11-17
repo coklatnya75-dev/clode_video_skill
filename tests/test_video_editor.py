@@ -60,6 +60,43 @@ class VideoEditorTests(unittest.TestCase):
             self.assertIn("afade=t=out:st=2.25:d=0.75", graph)
             self.assertIn("[aout]", graph)
 
+
+    def test_builds_crossfade_transition_between_clips(self):
+        with tempfile.TemporaryDirectory() as temp:
+            first = Path(temp) / "first.mp4"
+            second = Path(temp) / "second.mp4"
+            first.touch()
+            second.touch()
+            plan = {
+                "clips": [
+                    {"path": str(first), "start": 0, "end": 3},
+                    {"path": str(second), "start": 1, "end": 5},
+                ],
+                "output": {
+                    "path": str(Path(temp) / "out.mp4"),
+                    "transition": "dissolve",
+                    "transition_duration": 0.5,
+                    "fade_out": 0.5,
+                },
+            }
+            with patch("video_editor.editor.shutil.which", return_value="/usr/bin/ffmpeg"):
+                command = build_ffmpeg_command(plan)
+            graph = command[command.index("-filter_complex") + 1]
+            self.assertIn("xfade=transition=dissolve:duration=0.5:offset=2.5", graph)
+            # Crossfade overlap reduces total duration from 7s to 6.5s.
+            self.assertIn("fade=t=out:st=6.0:d=0.5", graph)
+
+    def test_rejects_transition_longer_than_a_clip(self):
+        plan = {
+            "clips": [
+                {"path": "a.mp4", "end": 2},
+                {"path": "b.mp4", "end": 3},
+            ],
+            "output": {"path": "out.mp4", "transition_duration": 2.5},
+        }
+        with self.assertRaisesRegex(VideoEditError, "cannot exceed any clip"):
+            validate_plan(plan)
+
     def test_rejects_overlapping_video_fades(self):
         plan = self.base_plan("input.mp4")
         plan["output"].update({"fade_in": 2, "fade_out": 2})
