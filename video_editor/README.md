@@ -275,12 +275,15 @@ pip install -U openai-whisper
 FFmpeg must also be installed. Edge TTS requires internet access and sends the
 script text to Microsoft's online speech service; Whisper runs locally after
 its model is available. The media matcher uses user-provided tags and
-descriptions, not computer vision. The pipeline does not download footage,
-create original images, or guarantee narration/clip duration alignment.
+descriptions, not computer vision. The pipeline does not download footage or create original images. By default,
+it measures the generated MP3 with FFprobe and distributes the exact voice-over
+duration across scenes in proportion to their estimated narration word counts.
+The renderer trims longer source clips and freeze-frames the final image when a
+source segment is shorter than its assigned scene duration. Scene boundaries
+are approximate rather than word-timestamp accurate. Use `--no-sync-scenes` to
+keep the original source clip durations. FFprobe must be available on `PATH`.
 Inspect the storyboard, generated voice, SRT timing, and final render before
-publishing. If voice-over is shorter than the assembled footage, the current
-renderer may end output at the shorter audio track because it uses
-`-shortest`; adjust media trims or narration length after review.
+publishing.
 
 
 ## Video asset inspection and frame sampling
