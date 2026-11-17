@@ -16,6 +16,7 @@ from .media_matcher import match_media_to_scenes
 from .storyboard import build_storyboard
 from .transcribe import transcribe_to_srt
 from .voiceover import generate_voiceover
+from .visual_captioner import caption_media_catalog
 
 
 class PipelineError(RuntimeError):
@@ -24,7 +25,7 @@ class PipelineError(RuntimeError):
 
 def run_pipeline(
     script: str,
-    catalog: list[dict[str, Any]],
+    catalog: list[dict[str, Any]] | dict[str, Any],
     *,
     output_video: str = "output/shorts.mp4",
     work_dir: str = "output/pipeline",
@@ -34,11 +35,33 @@ def run_pipeline(
     wpm: int = 135,
     whisper_model: str = "small",
     minimum_match_score: float = 0.08,
+    auto_caption: bool = False,
+    caption_model: str = "Salesforce/blip-image-captioning-base",
+    caption_device: str = "auto",
     render: bool = True,
 ) -> dict[str, Any]:
     """Run the complete script-to-MP4 workflow and return artifact paths."""
     workspace = Path(work_dir).expanduser().resolve()
     workspace.mkdir(parents=True, exist_ok=True)
+
+    captioned_catalog_path = None
+    if auto_caption:
+        if not isinstance(catalog, dict) or not isinstance(catalog.get("assets"), list):
+            raise PipelineError(
+                "Automatic visual captioning requires an inspector catalog object "
+                "with an assets list and sample_frames."
+            )
+        try:
+            catalog = caption_media_catalog(
+                catalog, model_name=caption_model, device=caption_device
+            )
+        except Exception as exc:
+            raise PipelineError(f"Visual captioning failed: {exc}") from exc
+        captioned_catalog_path = workspace / "media_catalog_captioned.json"
+        captioned_catalog_path.write_text(
+            json.dumps(catalog, ensure_ascii=False, indent=2) + "\\n",
+            encoding="utf-8",
+        )
 
     # Build temporary placeholder scenes so the matcher can map each narration
     # sentence to catalog metadata without requiring a pre-existing media list.
@@ -97,6 +120,7 @@ def run_pipeline(
         "status": "rendered" if render else "plan_ready",
         "storyboard": str(storyboard_path),
         "media_matches": str(matches_path),
+        "captioned_catalog": str(captioned_catalog_path) if captioned_catalog_path else None,
         "voiceover": voiceover_file,
         "subtitles": subtitle_file,
         "edit_plan": str(plan_path),
@@ -113,7 +137,7 @@ def main() -> int:
         description="Create a vertical video from a script and tagged media catalog."
     )
     parser.add_argument("script", help="UTF-8 narration script file.")
-    parser.add_argument("catalog", help="JSON array of media objects with path/start/end/tags/description.")
+    parser.add_argument("catalog", help="JSON array or inspector report object with an assets array.")
     parser.add_argument("--output-video", default="output/shorts.mp4")
     parser.add_argument("--work-dir", default="output/pipeline")
     parser.add_argument("--voice", default="id-ID-ArdiNeural")
@@ -122,6 +146,10 @@ def main() -> int:
     parser.add_argument("--wpm", type=int, default=135)
     parser.add_argument("--whisper-model", default="small")
     parser.add_argument("--minimum-match-score", type=float, default=0.08)
+    parser.add_argument("--auto-caption", action="store_true",
+                        help="Use BLIP to caption sample_frames in an inspector catalog.")
+    parser.add_argument("--caption-model", default="Salesforce/blip-image-captioning-base")
+    parser.add_argument("--caption-device", choices=("auto", "cpu", "cuda"), default="auto")
     parser.add_argument("--plan-only", action="store_true", help="Prepare all assets and edit plan but do not render.")
     args = parser.parse_args()
 
@@ -138,6 +166,9 @@ def main() -> int:
             wpm=args.wpm,
             whisper_model=args.whisper_model,
             minimum_match_score=args.minimum_match_score,
+            auto_caption=args.auto_caption,
+            caption_model=args.caption_model,
+            caption_device=args.caption_device,
             render=not args.plan_only,
         )
     except (OSError, json.JSONDecodeError, PipelineError, ValueError) as exc:
