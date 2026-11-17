@@ -137,3 +137,50 @@ python -m unittest discover -s tests -v
 The tests cover plan validation, fade filter construction, missing-input handling,
 and mocked Whisper/Edge TTS adapter commands. They do not replace end-to-end
 transcription, speech synthesis, or rendering with real media and services.
+
+
+## Script-to-storyboard planner
+
+The planner turns a narration script into a reviewable scene list and an edit
+plan that the FFmpeg renderer can consume. It splits the script at sentence
+boundaries (blank lines are also supported), estimates narration duration from
+word count, and pairs each scene with one clip from a media manifest.
+
+Create `script.txt`:
+
+```text
+Gurita memiliki tiga jantung.
+Darahnya berwarna biru karena mengandung hemocyanin.
+```
+
+Create `media.json` with exactly one entry per resulting scene. Each clip
+needs a local path and an explicit source end time:
+
+```json
+[
+  {"path": "media/octopus_intro.mp4", "start": 0, "end": 4},
+  {"path": "media/octopus_underwater.mp4", "start": 2, "end": 7}
+]
+```
+
+Generate the storyboard:
+
+```bash
+python -m video_editor.storyboard script.txt media.json --output storyboard.json --video-output output/shorts.mp4
+```
+
+The resulting JSON contains `scenes` (narration, estimated speaking time,
+media mapping, and a pacing note) plus `edit_plan`. To render it, extract the
+`edit_plan` object into a standalone JSON file, then run:
+
+```bash
+python -m video_editor edit_plan.json
+```
+
+Optional existing audio and subtitle files can be attached during planning with
+`--audio output/narasi.mp3 --subtitles output/captions.srt`. The WPM estimate
+can be adjusted with `--wpm 150`. Estimates are guidance only: actual speech
+timing varies, and the planner does not measure clip duration or generate,
+understand, or automatically select media. Review scene pacing and paths before
+rendering. This milestone establishes a transparent, deterministic workflow;
+semantic AI scene matching is a later feature.
