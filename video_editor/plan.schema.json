@@ -80,6 +80,30 @@
         "preset": {
           "type": "string",
           "default": "medium"
+        },
+        "fade_in": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0,
+          "description": "Optional video fade-in duration in seconds."
+        },
+        "fade_out": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0,
+          "description": "Optional video fade-out duration in seconds."
+        },
+        "audio_fade_in": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0,
+          "description": "Optional external audio fade-in duration in seconds."
+        },
+        "audio_fade_out": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0,
+          "description": "Optional external audio fade-out duration in seconds."
         }
       },
       "additionalProperties": false
