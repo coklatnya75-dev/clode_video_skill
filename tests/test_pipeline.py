@@ -26,7 +26,7 @@ class PipelineTests(unittest.TestCase):
 
             with patch("video_editor.pipeline.generate_voiceover", side_effect=fake_voice), \
                  patch("video_editor.pipeline.transcribe_to_srt", side_effect=fake_transcribe), \
-                 patch("video_editor.pipeline.probe_audio_duration", return_value=6.25), \\
+                 patch("video_editor.pipeline.probe_audio_duration", return_value=6.25), \
                  patch("video_editor.pipeline.render_video", side_effect=fake_render):
                 result = run_pipeline(
                     "Gurita hidup di laut. Gurita punya tentakel.",
@@ -67,7 +67,7 @@ class PipelineTests(unittest.TestCase):
             with patch("video_editor.pipeline.caption_media_catalog", return_value=captioned) as caption_mock, \
                  patch("video_editor.pipeline.generate_voiceover", side_effect=fake_voice), \
                  patch("video_editor.pipeline.transcribe_to_srt", side_effect=fake_transcribe), \
-                 patch("video_editor.pipeline.probe_audio_duration", return_value=3.0), \\
+                 patch("video_editor.pipeline.probe_audio_duration", return_value=3.0), \
                  patch("video_editor.pipeline.render_video"):
                 result = run_pipeline(
                     "Gurita berenang di laut.", catalog,
@@ -92,7 +92,7 @@ class PipelineTests(unittest.TestCase):
                 return str(target)
             with patch("video_editor.pipeline.generate_voiceover", side_effect=fake_voice), \
                  patch("video_editor.pipeline.transcribe_to_srt", side_effect=fake_transcribe), \
-                 patch("video_editor.pipeline.probe_audio_duration", return_value=3.0), \\
+                 patch("video_editor.pipeline.probe_audio_duration", return_value=3.0), \
                  patch("video_editor.pipeline.render_video") as render_mock:
                 result = run_pipeline("Gurita hidup di laut.", catalog, work_dir=directory, render=False)
             render_mock.assert_not_called()
