@@ -150,7 +150,7 @@ def sync_storyboard_to_srt(
     )
     cues = []
     for match in cue_pattern.finditer(raw):
-        block_end = raw.find("\\n\\n", match.end())
+        block_end = raw.find("\n\n", match.end())
         block = raw[match.end():] if block_end < 0 else raw[match.end():block_end]
         words = re.findall(r"\\w+", block, flags=re.UNICODE)
         start, end = _srt_seconds(match.group(1)), _srt_seconds(match.group(2))
