@@ -387,3 +387,31 @@ the entire source clip. The last segment may be shorter than the requested
 window. This is temporal segmentation, not full action recognition: a short
 sample can still miss an event, so review the frames, captions, and selected
 trim points before rendering.
+
+
+## Optional multilingual semantic scene matching
+
+Keyword matching can miss a good clip when the narration is Indonesian but an
+automatic BLIP caption is English or uses different wording. Enable the optional
+multilingual sentence-embedding matcher to compare meaning across languages:
+
+```bash
+pip install sentence-transformers
+python -m video_editor.pipeline script.txt output/inspection/media_catalog.json \
+  --auto-caption --semantic-match \
+  --output-video output/shorts.mp4 --work-dir output/project
+```
+
+The default model is
+`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`. It is downloaded
+the first time it is loaded and runs locally afterward; the first run needs
+internet access and disk/RAM for the model. Override it with `--semantic-model`
+if needed. Without `--semantic-match`, the lightweight keyword-only behavior
+remains unchanged and no embedding package is required.
+
+Semantic mode blends 35% keyword overlap with 65% multilingual cosine
+similarity. The match report includes both component scores and the matched
+keywords. This helps bridge Indonesian narration and English visual captions,
+but embeddings cannot verify what is actually happening in a video. BLIP only
+samples still frames, and semantic similarity can still select an incorrect
+scene. Inspect the sample frames and review every match before rendering.
