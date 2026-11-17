@@ -330,3 +330,32 @@ video. It may miss actions, context, objects between samples, and can produce
 incorrect captions. Captions are generated locally after the model is
 downloaded; no video or frame is uploaded by this tool. Always inspect the
 sample frames and correct captions before using them to select footage.
+
+
+### One-command pipeline with optional visual captioning
+
+You can now pass the inspector report directly to the production pipeline and
+enable BLIP captions as part of the workflow:
+
+```bash
+python -m video_editor.media_inspector media/ --output-dir output/inspection --samples 3
+
+python -m video_editor.pipeline script.txt output/inspection/media_catalog.json \
+  --auto-caption \
+  --caption-device auto \
+  --output-video output/shorts.mp4 \
+  --work-dir output/project
+```
+
+With `--auto-caption`, the pipeline captions each sampled frame first, saves
+`media_catalog_captioned.json` in the work directory, then matches the
+narration scenes against the generated descriptions and any manually entered
+tags. You can select a model with `--caption-model` and a device with
+`--caption-device cpu` or `--caption-device cuda`. Omit `--auto-caption`
+to use an already tagged catalog without loading the vision model.
+
+Automatic captioning requires the optional `torch`, `transformers`, and
+`pillow` packages and downloads model weights on first use. The pipeline also
+continues to require Edge TTS, local Whisper, and FFmpeg for voice-over,
+subtitles, and rendering. Caption matching remains a suggestion: review the
+captioned catalog and every scene match before publishing.
