@@ -65,6 +65,8 @@ def caption_media_catalog(catalog: dict[str, Any], *, model_name: str = "Salesfo
     """Add frame captions and an aggregate description to each catalog asset."""
     if not isinstance(catalog, dict) or not isinstance(catalog.get("assets"), list) or not catalog["assets"]:
         raise VisualCaptionError("Catalog must be an object containing a non-empty assets list.")
+    if isinstance(max_new_tokens, bool) or not isinstance(max_new_tokens, int) or not 1 <= max_new_tokens <= 128:
+        raise VisualCaptionError("max_new_tokens must be an integer from 1 to 128.")
     # Load once and reuse the model for all sampled frames.
     try:
         import torch
