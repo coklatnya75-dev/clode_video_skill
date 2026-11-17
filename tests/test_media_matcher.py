@@ -19,6 +19,23 @@ class MediaMatcherTests(unittest.TestCase):
         self.assertEqual(result["media_manifest"][0]["path"], "ocean.mp4")
         self.assertEqual(result["media_manifest"][1]["path"], "octopus.mp4")
         self.assertTrue(all(match["review_required"] for match in result["matches"]))
+        self.assertIn(result["matches"][0]["confidence"], {"high", "medium", "low"})
+        self.assertEqual(result["matches"][0]["source_start"], 0)
+        self.assertEqual(result["matches"][0]["source_end"], 4)
+        self.assertIn("alternatives", result["matches"][0])
+
+    def test_includes_ranked_alternatives_for_manual_review(self):
+        catalog = self.catalog + [
+            {"path": "reef.mp4", "start": 2, "end": 6,
+             "tags": ["laut", "ikan"], "description": "ikan berenang di terumbu karang"}
+        ]
+        result = match_media_to_scenes(
+            [{"scene": 1, "narration": "Laut dan ikan berenang"}],
+            catalog,
+        )
+        match = result["matches"][0]
+        self.assertLessEqual(len(match["alternatives"]), 2)
+        self.assertTrue(all("score" in item and "path" in item for item in match["alternatives"]))
 
     def test_accepts_inspector_report_object(self):
         report = {"assets": self.catalog}
