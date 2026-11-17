@@ -36,6 +36,17 @@ class VideoEditorTests(unittest.TestCase):
             self.assertIn("libx264", command)
             self.assertIn("-an", command)
 
+    def test_output_duration_trims_or_freeze_frames_scene(self):
+        with tempfile.TemporaryDirectory() as temp:
+            media = Path(temp) / "input.mp4"
+            media.touch()
+            plan = self.base_plan(str(media))
+            plan["clips"][0]["output_duration"] = 5
+            with patch("video_editor.editor.shutil.which", return_value="/usr/bin/ffmpeg"):
+                command = build_ffmpeg_command(plan)
+            graph = command[command.index("-filter_complex") + 1]
+            self.assertIn("tpad=stop_mode=clone:stop_duration=3.0", graph)
+
     def test_fade_filters_are_added(self):
         with tempfile.TemporaryDirectory() as temp:
             media = Path(temp) / "input.mp4"
