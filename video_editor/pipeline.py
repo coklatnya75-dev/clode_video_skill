@@ -59,7 +59,7 @@ def run_pipeline(
             raise PipelineError(f"Visual captioning failed: {exc}") from exc
         captioned_catalog_path = workspace / "media_catalog_captioned.json"
         captioned_catalog_path.write_text(
-            json.dumps(catalog, ensure_ascii=False, indent=2) + "\\n",
+            json.dumps(catalog, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
 
