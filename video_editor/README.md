@@ -2,7 +2,8 @@
 
 A small FFmpeg-powered renderer for TikTok, YouTube Shorts, and Instagram Reels.
 It can trim clips, concatenate them in order, center-crop/pad-to-fill them into
-a vertical frame, burn SRT subtitles, and add an external voice-over/music track.
+a vertical frame, apply optional video/audio fades, burn SRT subtitles, and add
+an external voice-over/music track.
 
 ## Requirements
 
@@ -29,6 +30,10 @@ Save as `edit_plan.json`:
     "width": 1080,
     "height": 1920,
     "fps": 30,
+    "fade_in": 0.4,
+    "fade_out": 0.6,
+    "audio_fade_in": 0.2,
+    "audio_fade_out": 0.5,
     "crf": 20,
     "preset": "medium"
   }
@@ -42,7 +47,11 @@ python -c "from video_editor.editor import render_plan_file; print(render_plan_f
 ```
 
 Set `audio` or `subtitles` to `null` to omit that track. The external audio
-track is mapped as the output audio and trimmed to the video duration.
+track is mapped as the output audio and trimmed to the video duration. Optional
+fade controls (`fade_in`, `fade_out`, `audio_fade_in`, and
+`audio_fade_out`) are specified in seconds in the output object. Fade
+durations must fit within the total assembled clip duration; fade-in and fade-out
+for the same stream may not overlap.
 
 ## Scope and safety
 
