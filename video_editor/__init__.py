@@ -5,8 +5,9 @@ from .pipeline import run_pipeline
 from .storyboard import build_storyboard
 from .transcribe import transcribe_to_srt
 from .voiceover import generate_voiceover
+from .visual_captioner import caption_media_catalog
 
 __all__ = [
     "render_video", "run_pipeline", "build_storyboard",
-    "transcribe_to_srt", "generate_voiceover",
+    "transcribe_to_srt", "generate_voiceover", "caption_media_catalog",
 ]
