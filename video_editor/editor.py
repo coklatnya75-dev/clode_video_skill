@@ -65,7 +65,23 @@ def validate_plan(plan: dict[str, Any]) -> None:
     preset = output.get("preset", "medium")
     if not isinstance(preset, str) or not preset:
         raise VideoEditError("output.preset must be a non-empty string.")
-    duration = sum(float(c["end"]) - float(c.get("start", 0)) for c in clips)
+    clip_durations = [float(c["end"]) - float(c.get("start", 0)) for c in clips]
+    transition_duration = output.get("transition_duration", 0)
+    if isinstance(transition_duration, bool) or not isinstance(transition_duration, (int, float)) or transition_duration < 0:
+        raise VideoEditError("output.transition_duration must be a non-negative number.")
+    if len(clips) < 2 and transition_duration:
+        raise VideoEditError("A transition requires at least two clips.")
+    if transition_duration and any(transition_duration > duration for duration in clip_durations):
+        raise VideoEditError("output.transition_duration cannot exceed any clip duration.")
+    transition = output.get("transition", "fade")
+    allowed_transitions = {
+        "fade", "wipeleft", "wiperight", "wipeup", "wipedown",
+        "slideleft", "slideright", "slideup", "slidedown",
+        "circleopen", "circleclose", "dissolve", "pixelize",
+    }
+    if not isinstance(transition, str) or transition not in allowed_transitions:
+        raise VideoEditError(f"output.transition must be one of: {', '.join(sorted(allowed_transitions))}.")
+    duration = sum(clip_durations) - float(transition_duration) * (len(clips) - 1)
     for key in ("fade_in", "fade_out", "audio_fade_in", "audio_fade_out"):
         value = output.get(key, 0)
         if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
@@ -100,10 +116,26 @@ def build_ffmpeg_command(plan: dict[str, Any]) -> list[str]:
             f"crop={width}:{height},fps={fps},setsar=1,format=yuv420p[v{i}]"
         )
 
-    labels = "".join(f"[v{i}]" for i in range(len(plan["clips"])))
-    filters.append(f"{labels}concat=n={len(plan['clips'])}:v=1:a=0[vconcat]")
+    transition_duration = float(output_cfg.get("transition_duration", 0))
+    clip_durations = [float(c["end"]) - float(c.get("start", 0)) for c in plan["clips"]]
+    total_duration = sum(clip_durations) - transition_duration * (len(clip_durations) - 1)
+    if transition_duration and len(clip_durations) > 1:
+        previous_label = "v0"
+        elapsed = clip_durations[0]
+        for index in range(1, len(clip_durations)):
+            output_label = f"vx{index}"
+            offset = elapsed - transition_duration * index
+            filters.append(
+                f"[{previous_label}][v{index}]xfade=transition={output_cfg.get('transition', 'fade')}:"
+                f"duration={transition_duration}:offset={offset}[{output_label}]"
+            )
+            previous_label = output_label
+            elapsed += clip_durations[index]
+        filters.append(f"[{previous_label}]null[vconcat]")
+    else:
+        labels = "".join(f"[v{i}]" for i in range(len(plan["clips"])))
+        filters.append(f"{labels}concat=n={len(plan['clips'])}:v=1:a=0[vconcat]")
 
-    total_duration = sum(float(c["end"]) - float(c.get("start", 0)) for c in plan["clips"])
     fade_in = float(output_cfg.get("fade_in", 0))
     fade_out = float(output_cfg.get("fade_out", 0))
     video_filters = []
