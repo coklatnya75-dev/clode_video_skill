@@ -278,10 +278,14 @@ its model is available. The media matcher uses user-provided tags and
 descriptions, not computer vision. The pipeline does not download footage or create original images. By default,
 it measures the generated MP3 with FFprobe and distributes the exact voice-over
 duration across scenes in proportion to their estimated narration word counts.
-The renderer trims longer source clips and freeze-frames the final image when a
-source segment is shorter than its assigned scene duration. Scene boundaries
-are approximate rather than word-timestamp accurate. Use `--no-sync-scenes` to
-keep the original source clip durations. FFprobe must be available on `PATH`.
+After measuring the audio, the pipeline uses Whisper SRT cue timestamps and
+script word positions to estimate each scene boundary. This accounts for the
+actual pace and pauses in the generated narration better than word-count-only
+timing, although it is not phoneme-level forced alignment and can be affected
+by transcription errors. The renderer trims longer source clips and freeze-frames
+the final image when a source segment is shorter than its assigned duration.
+Use `--no-sync-scenes` to keep original source clip durations. FFprobe must be
+available on `PATH`.
 Inspect the storyboard, generated voice, SRT timing, and final render before
 publishing.
 
