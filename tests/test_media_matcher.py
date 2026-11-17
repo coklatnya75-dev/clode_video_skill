@@ -20,6 +20,11 @@ class MediaMatcherTests(unittest.TestCase):
         self.assertEqual(result["media_manifest"][1]["path"], "octopus.mp4")
         self.assertTrue(all(match["review_required"] for match in result["matches"]))
 
+    def test_accepts_inspector_report_object(self):
+        report = {"assets": self.catalog}
+        result = match_media_to_scenes(self.scenes, report)
+        self.assertEqual(result["media_manifest"][0]["path"], "ocean.mp4")
+
     def test_rejects_unmatched_scene(self):
         with self.assertRaises(MediaMatchError):
             match_media_to_scenes(
