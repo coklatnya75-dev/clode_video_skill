@@ -1,0 +1,32 @@
+name: Video Editor Tests
+
+on:
+  push:
+    branches:
+      - feature/ai-video-editor
+  pull_request:
+    branches:
+      - feature/ai-video-editor
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: Python unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Show Python version
+        run: python --version
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
