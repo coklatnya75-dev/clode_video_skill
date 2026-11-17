@@ -12,6 +12,8 @@ an external voice-over/music track.
   filter / libass support).
 - Optional automatic transcription: install local Whisper with
   `pip install -U openai-whisper`. Whisper also requires FFmpeg.
+- Optional neural voice-over: install `edge-tts` with `pip install edge-tts`
+  and an active internet connection.
 
 The video renderer itself has no Python third-party dependencies. Whisper is
 an optional dependency used only by the transcription command.
@@ -79,11 +81,39 @@ Review the SRT for names, numbers, punctuation, and regional-language accuracy
 before publishing. The generated SRT can be passed as the plan's `subtitles`
 value and burned into the final video.
 
+## Indonesian AI voice-over
+
+Install the optional Edge TTS client:
+
+```bash
+pip install edge-tts
+```
+
+Generate a male Indonesian neural voice:
+
+```bash
+python -m video_editor.voiceover "Halo, selamat datang di video hari ini!" output/voiceover.mp3
+```
+
+Choose the female Indonesian voice and adjust delivery:
+
+```bash
+python -m video_editor.voiceover "Yuk, simak faktanya!" output/narasi.mp3 --voice id-ID-GadisNeural --rate +5% --pitch +1Hz
+```
+
+The default voice is `id-ID-ArdiNeural`; `id-ID-GadisNeural` is another
+Indonesian voice option. Edge TTS sends text to Microsoft's online speech
+service through the community client, so internet access is required and
+availability/voice IDs may change. Do not submit confidential text. Check the
+generated audio and pronunciation before publishing. The resulting MP3 can be
+used as the edit plan's `audio` track.
+
 ## Scope and safety
 
-This adds speech-to-SRT transcription, not AI voice synthesis or generative
-video. It does not select music or guarantee perfect transcription. Never commit
-API keys or media files containing private information.
+The project now includes local Whisper transcription and an optional online
+neural voice-over adapter. It still does not generate video scenes, select
+music automatically, or guarantee perfect transcription/pronunciation. Never
+commit API keys or media files containing private information.
 
 Input paths in an edit plan must refer to local files available to the process.
 The renderer invokes FFmpeg with an argument array (not through a shell) and
@@ -105,5 +135,5 @@ python -m unittest discover -s tests -v
 ```
 
 The tests cover plan validation, fade filter construction, missing-input handling,
-and the Whisper adapter command using mocks. They do not replace an end-to-end
-transcription or render test with real media files and local dependencies.
+and mocked Whisper/Edge TTS adapter commands. They do not replace end-to-end
+transcription, speech synthesis, or rendering with real media and services.
