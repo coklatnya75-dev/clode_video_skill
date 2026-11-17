@@ -57,6 +57,7 @@ def run_pipeline(
     wpm: int = 135,
     whisper_model: str = "small",
     minimum_match_score: float = 0.08,
+    shot_diversity_weight: float = 0.04,
     auto_caption: bool = False,
     semantic_match: bool = False,
     semantic_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
@@ -100,6 +101,7 @@ def run_pipeline(
     matched = match_media_to_scenes(
         scene_stub, catalog, minimum_score=minimum_match_score,
         semantic_match=semantic_match, semantic_model_name=semantic_model,
+        shot_diversity_weight=shot_diversity_weight,
     )
     storyboard = build_storyboard(
         script, matched["media_manifest"], output_path=output_video, wpm=wpm
@@ -180,6 +182,8 @@ def main() -> int:
     parser.add_argument("--wpm", type=int, default=135)
     parser.add_argument("--whisper-model", default="small")
     parser.add_argument("--minimum-match-score", type=float, default=0.08)
+    parser.add_argument("--shot-diversity-weight", type=float, default=0.04,
+                        help="Small 0-0.2 ranking bonus for varying shot types across scenes; set 0 to disable.")
     parser.add_argument("--semantic-match", action="store_true",
                         help="Use optional multilingual embeddings to match Indonesian narration with catalog captions.")
     parser.add_argument("--semantic-model", default="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
@@ -204,6 +208,7 @@ def main() -> int:
             wpm=args.wpm,
             whisper_model=args.whisper_model,
             minimum_match_score=args.minimum_match_score,
+            shot_diversity_weight=args.shot_diversity_weight,
             auto_caption=args.auto_caption,
             semantic_match=args.semantic_match,
             semantic_model=args.semantic_model,
