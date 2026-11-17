@@ -19,7 +19,7 @@ class PipelineTests(unittest.TestCase):
             def fake_transcribe(media, **kwargs):
                 target = Path(kwargs["output_dir"]) / "voiceover.srt"
                 target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text("1\n00:00:00,000 --> 00:00:01,000\nTes\n", encoding="utf-8")
+                target.write_text("1\n00:00:00,000 --> 00:00:02,000\nGurita hidup di laut.\n\n2\n00:00:02,200 --> 00:00:06,000\nGurita punya tentakel.\n", encoding="utf-8")
                 return str(target)
             def fake_render(plan):
                 return plan["output"]["path"]
