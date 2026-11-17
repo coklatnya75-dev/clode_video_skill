@@ -145,14 +145,14 @@ def sync_storyboard_to_srt(
         raise StoryboardError(f"Subtitle file not found: {srt_file}")
     raw = srt_file.read_text(encoding="utf-8-sig")
     cue_pattern = re.compile(
-        r"(?m)^(\\d{2}:\\d{2}:\\d{2}[,.]\\d{3})\\s*-->\\s*"
-        r"(\\d{2}:\\d{2}:\\d{2}[,.]\\d{3}).*$"
+        r"(?m)^(\d{2}:\d{2}:\d{2}[,.]\d{3})\\s*-->\\s*"
+        r"(\d{2}:\d{2}:\d{2}[,.]\d{3}).*$"
     )
     cues = []
     for match in cue_pattern.finditer(raw):
         block_end = raw.find("\n\n", match.end())
         block = raw[match.end():] if block_end < 0 else raw[match.end():block_end]
-        words = re.findall(r"\\w+", block, flags=re.UNICODE)
+        words = re.findall(r"\w+", block, flags=re.UNICODE)
         start, end = _srt_seconds(match.group(1)), _srt_seconds(match.group(2))
         if words and end > start:
             cues.append({"start": start, "end": end, "word_count": len(words)})
@@ -162,7 +162,7 @@ def sync_storyboard_to_srt(
         raise StoryboardError("SRT contains no valid timed subtitle cues.")
     if not isinstance(scenes, list) or not scenes or not isinstance(clips, list) or len(scenes) != len(clips):
         raise StoryboardError("Storyboard scenes and edit-plan clips must have matching entries.")
-    scene_counts = [max(1, len(re.findall(r"\\w+", str(scene.get("narration", "")), flags=re.UNICODE))) for scene in scenes]
+    scene_counts = [max(1, len(re.findall(r"\w+", str(scene.get("narration", "")), flags=re.UNICODE))) for scene in scenes]
     total_scene_words = sum(scene_counts)
     total_cue_words = sum(cue["word_count"] for cue in cues)
     if total_scene_words <= 0 or total_cue_words <= 0:
