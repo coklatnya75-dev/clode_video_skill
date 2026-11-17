@@ -227,3 +227,57 @@ it only compares user-entered metadata. Each asset is used at most once by
 default. Use `--allow-reuse` to permit reuse, and adjust
 `--minimum-score 0.05` only if you understand the trade-off. Every suggestion
 is flagged for human review before rendering.
+
+
+## Automatic production pipeline
+
+The pipeline now orchestrates the existing components in one command:
+1. Split the narration into scene-sized sentences.
+2. Match each scene to a tagged catalog asset.
+3. Save the storyboard and match report.
+4. Generate Indonesian voice-over with Edge TTS.
+5. Transcribe that voice-over with local Whisper to create SRT subtitles.
+6. Build the FFmpeg edit plan and optionally render the vertical MP4.
+
+Example:
+
+```bash
+python -m video_editor.pipeline script.txt media_catalog.json \
+  --output-video output/shorts.mp4 \
+  --work-dir output/project
+```
+
+Prepare a catalog with one suitable, uniquely tagged media asset per sentence.
+Example item:
+
+```json
+{
+  "path": "media/gurita.mp4",
+  "start": 0,
+  "end": 6,
+  "tags": ["gurita", "tentakel", "hewan laut"],
+  "description": "Gurita berenang di dasar laut"
+}
+```
+
+Use `--plan-only` to prepare the assets and edit plan without invoking FFmpeg.
+The pipeline still generates voice-over and subtitles in plan-only mode.
+Optional controls include `--voice id-ID-GadisNeural`, `--rate +5%`,
+`--pitch +1Hz`, `--wpm 150`, and `--whisper-model base`.
+
+Install the optional tools before running:
+
+```bash
+pip install edge-tts
+pip install -U openai-whisper
+```
+
+FFmpeg must also be installed. Edge TTS requires internet access and sends the
+script text to Microsoft's online speech service; Whisper runs locally after
+its model is available. The media matcher uses user-provided tags and
+descriptions, not computer vision. The pipeline does not download footage,
+create original images, or guarantee narration/clip duration alignment.
+Inspect the storyboard, generated voice, SRT timing, and final render before
+publishing. If voice-over is shorter than the assembled footage, the current
+renderer may end output at the shorter audio track because it uses
+`-shortest`; adjust media trims or narration length after review.
