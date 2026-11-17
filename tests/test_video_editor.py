@@ -36,6 +36,36 @@ class VideoEditorTests(unittest.TestCase):
             self.assertIn("libx264", command)
             self.assertIn("-an", command)
 
+    def test_fade_filters_are_added(self):
+        with tempfile.TemporaryDirectory() as temp:
+            media = Path(temp) / "input.mp4"
+            audio = Path(temp) / "voice.mp3"
+            media.touch()
+            audio.touch()
+            plan = self.base_plan(str(media))
+            plan["audio"] = str(audio)
+            plan["output"].update({
+                "path": str(Path(temp) / "out.mp4"),
+                "fade_in": 0.5,
+                "fade_out": 1,
+                "audio_fade_in": 0.25,
+                "audio_fade_out": 0.75,
+            })
+            with patch("video_editor.editor.shutil.which", return_value="/usr/bin/ffmpeg"):
+                command = build_ffmpeg_command(plan)
+            graph = command[command.index("-filter_complex") + 1]
+            self.assertIn("fade=t=in:st=0:d=0.5", graph)
+            self.assertIn("fade=t=out:st=2.0:d=1.0", graph)
+            self.assertIn("afade=t=in:st=0:d=0.25", graph)
+            self.assertIn("afade=t=out:st=2.25:d=0.75", graph)
+            self.assertIn("[aout]", graph)
+
+    def test_rejects_overlapping_video_fades(self):
+        plan = self.base_plan("input.mp4")
+        plan["output"].update({"fade_in": 2, "fade_out": 2})
+        with self.assertRaisesRegex(VideoEditError, "cannot overlap"):
+            validate_plan(plan)
+
     def test_missing_media_is_reported(self):
         plan = self.base_plan("/path/that/does/not/exist.mp4")
         with patch("video_editor.editor.shutil.which", return_value="/usr/bin/ffmpeg"):
