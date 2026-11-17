@@ -10,8 +10,11 @@ an external voice-over/music track.
 - Python 3.10+
 - FFmpeg installed and available on `PATH` (including `libx264` and the subtitles
   filter / libass support).
+- Optional automatic transcription: install local Whisper with
+  `pip install -U openai-whisper`. Whisper also requires FFmpeg.
 
-No Python third-party packages are required.
+The video renderer itself has no Python third-party dependencies. Whisper is
+an optional dependency used only by the transcription command.
 
 ## Example edit plan
 
@@ -53,12 +56,33 @@ fade controls (`fade_in`, `fade_out`, `audio_fade_in`, and
 durations must fit within the total assembled clip duration; fade-in and fade-out
 for the same stream may not overlap.
 
+## Automatic subtitles with local Whisper
+
+Install Whisper on the machine that will run the editor:
+
+```bash
+pip install -U openai-whisper
+```
+
+Generate an Indonesian SRT file from an audio or video file:
+
+```bash
+python -m video_editor.transcribe media/video.mp4
+python -m video_editor.transcribe media/video.mp4 --model base --output-dir output
+```
+
+The default model is `small`; choose `tiny` or `base` for faster, less
+resource-intensive runs, or larger models for potentially better accuracy.
+Whisper downloads its model the first time it is used, so an internet connection
+may be needed for that initial download. Transcription then runs locally.
+Review the SRT for names, numbers, punctuation, and regional-language accuracy
+before publishing. The generated SRT can be passed as the plan's `subtitles`
+value and burned into the final video.
+
 ## Scope and safety
 
-This is the deterministic editing/rendering layer only. It does not yet generate
-captions from speech, synthesize voice, generate video, or select music. Those
-features need separate provider adapters and credentials configured outside the
-repository (for example, environment variables or a secret manager). Never commit
+This adds speech-to-SRT transcription, not AI voice synthesis or generative
+video. It does not select music or guarantee perfect transcription. Never commit
 API keys or media files containing private information.
 
 Input paths in an edit plan must refer to local files available to the process.
@@ -80,6 +104,6 @@ Run the unit tests from the repository root:
 python -m unittest discover -s tests -v
 ```
 
-The tests cover plan validation, vertical output command construction, and
-missing-input handling. They do not replace an end-to-end render test with
-real media files and a local FFmpeg installation.
+The tests cover plan validation, fade filter construction, missing-input handling,
+and the Whisper adapter command using mocks. They do not replace an end-to-end
+transcription or render test with real media files and local dependencies.
