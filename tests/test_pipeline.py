@@ -56,7 +56,7 @@ class PipelineTests(unittest.TestCase):
             def fake_transcribe(media, **kwargs):
                 target = Path(kwargs["output_dir"]) / "voiceover.srt"
                 target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text("subtitle", encoding="utf-8")
+                target.write_text("1\\n00:00:00,000 --> 00:00:03,000\\nGurita berenang di laut.\\n", encoding="utf-8")
                 return str(target)
             captioned = {
                 "assets": [
