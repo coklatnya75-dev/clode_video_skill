@@ -129,12 +129,41 @@ def match_media_to_scenes(
         item = prepared[media_index][0]
         used.add(media_index)
         manifest.append({"path": item["path"], "start": item.get("start", 0), "end": item["end"]})
+
+        def confidence_label(value: float) -> str:
+            if value >= 0.65:
+                return "high"
+            if value >= 0.35:
+                return "medium"
+            return "low"
+
+        alternatives = []
+        for candidate_score, _, candidate_index, candidate_overlap, candidate_semantic, candidate_keyword in ranked[1:4]:
+            candidate = prepared[candidate_index][0]
+            alternative = {
+                "path": candidate["path"],
+                "start": candidate.get("start", 0),
+                "end": candidate["end"],
+                "score": round(candidate_score, 3),
+                "matched_keywords": sorted(candidate_overlap),
+            }
+            if semantic_match:
+                alternative["keyword_score"] = round(candidate_keyword, 3)
+                alternative["semantic_similarity"] = round(candidate_semantic, 3)
+            alternatives.append(alternative)
+
         match = {
             "scene": scene.get("scene", scene_index + 1),
             "narration": narration,
             "matched_media": item["path"],
+            "source_start": item.get("start", 0),
+            "source_end": item["end"],
+            "description": item.get("description", ""),
+            "tags": item.get("tags", []),
             "score": round(score, 3),
+            "confidence": confidence_label(score),
             "matched_keywords": sorted(overlap),
+            "alternatives": alternatives,
             "review_required": True,
         }
         if semantic_match:
