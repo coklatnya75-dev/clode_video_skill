@@ -27,13 +27,17 @@ class MediaMatcherTests(unittest.TestCase):
 
 
     def test_semantic_matching_can_match_cross_language_descriptions(self):
-        import numpy as np
+        class FakeVectors:
+            def __getitem__(self, key):
+                return self
+            def __matmul__(self, other):
+                return [0.95, 0.0]
 
         class FakeEncoder:
             def encode(self, texts, **kwargs):
                 # Query is Indonesian; first catalog description is an English
                 # paraphrase and is deliberately close in embedding space.
-                return np.array([[1.0, 0.0], [0.95, 0.05], [0.0, 1.0]])
+                return FakeVectors()
 
         scenes = [{"scene": 1, "narration": "Makhluk laut bergerak di samudra."}]
         catalog = [
