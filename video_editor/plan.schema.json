@@ -28,6 +28,11 @@
           "end": {
             "type": "number",
             "exclusiveMinimum": 0
+          },
+          "output_duration": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Optional target display duration. Short source clips are freeze-framed at the end; longer clips are trimmed."
           }
         },
         "additionalProperties": false
