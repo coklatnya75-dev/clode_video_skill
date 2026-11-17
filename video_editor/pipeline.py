@@ -15,7 +15,7 @@ from typing import Any
 
 from .editor import render_video
 from .media_matcher import match_media_to_scenes
-from .storyboard import build_storyboard, sync_storyboard_to_duration
+from .storyboard import build_storyboard, sync_storyboard_to_duration, sync_storyboard_to_srt
 from .transcribe import transcribe_to_srt
 from .voiceover import generate_voiceover
 from .visual_captioner import caption_media_catalog
@@ -131,6 +131,7 @@ def run_pipeline(
         if sync_scenes_to_voiceover:
             measured_duration = probe_audio_duration(voiceover_file)
             storyboard = sync_storyboard_to_duration(storyboard, measured_duration)
+            storyboard = sync_storyboard_to_srt(storyboard, subtitle_file, measured_duration)
             storyboard_path.write_text(
                 json.dumps(storyboard, ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
