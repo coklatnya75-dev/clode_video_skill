@@ -25,6 +25,31 @@ class MediaMatcherTests(unittest.TestCase):
         result = match_media_to_scenes(self.scenes, report)
         self.assertEqual(result["media_manifest"][0]["path"], "ocean.mp4")
 
+
+    def test_semantic_matching_can_match_cross_language_descriptions(self):
+        import numpy as np
+
+        class FakeEncoder:
+            def encode(self, texts, **kwargs):
+                # Query is Indonesian; first catalog description is an English
+                # paraphrase and is deliberately close in embedding space.
+                return np.array([[1.0, 0.0], [0.95, 0.05], [0.0, 1.0]])
+
+        scenes = [{"scene": 1, "narration": "Makhluk laut bergerak di samudra."}]
+        catalog = [
+            {"path": "underwater.mp4", "start": 0, "end": 4,
+             "tags": ["ocean animal"], "description": "an animal swimming underwater"},
+            {"path": "castle.mp4", "start": 0, "end": 4,
+             "tags": ["old building"], "description": "a medieval stone castle"},
+        ]
+        result = match_media_to_scenes(
+            scenes, catalog, semantic_match=True, minimum_score=0.1,
+            _semantic_encoder=FakeEncoder(),
+        )
+        self.assertEqual(result["media_manifest"][0]["path"], "underwater.mp4")
+        self.assertEqual(result["method"], "hybrid_keyword_multilingual_semantic")
+        self.assertGreater(result["matches"][0]["semantic_similarity"], 0.9)
+
     def test_rejects_unmatched_scene(self):
         with self.assertRaises(MediaMatchError):
             match_media_to_scenes(
