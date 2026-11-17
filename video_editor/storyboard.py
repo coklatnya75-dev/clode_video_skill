@@ -144,18 +144,25 @@ def sync_storyboard_to_srt(
     if not srt_file.is_file():
         raise StoryboardError(f"Subtitle file not found: {srt_file}")
     raw = srt_file.read_text(encoding="utf-8-sig")
-    cue_pattern = re.compile(
-        r"(?m)^(\d{2}:\d{2}:\d{2}[,.]\d{3})\s*-->\s*"
-        r"(\d{2}:\d{2}:\d{2}[,.]\d{3}).*$"
+    timestamp_pattern = re.compile(
+        r"^(\d{2}:\d{2}:\d{2}[,.]\d{3})\s*-->\s*"
+        r"(\d{2}:\d{2}:\d{2}[,.]\d{3})"
     )
     cues = []
-    for match in cue_pattern.finditer(raw):
-        block_end = raw.find("\n\n", match.end())
-        block = raw[match.end():] if block_end < 0 else raw[match.end():block_end]
-        words = re.findall(r"\w+", block, flags=re.UNICODE)
+    for block in re.split(r"\r?\n\s*\r?\n", raw.strip()):
+        lines = block.splitlines()
+        timestamp_index = next(
+            (index for index, line in enumerate(lines) if timestamp_pattern.match(line.strip())),
+            None,
+        )
+        if timestamp_index is None:
+            continue
+        match = timestamp_pattern.match(lines[timestamp_index].strip())
+        words = re.findall(r"\w+", " ".join(lines[timestamp_index + 1:]), flags=re.UNICODE)
         start, end = _srt_seconds(match.group(1)), _srt_seconds(match.group(2))
         if words and end > start:
             cues.append({"start": start, "end": end, "word_count": len(words)})
+    cues.sort(key=lambda cue: cue["start"])
     scenes = storyboard.get("scenes")
     clips = storyboard.get("edit_plan", {}).get("clips")
     if not cues:
