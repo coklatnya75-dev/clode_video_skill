@@ -281,3 +281,26 @@ Inspect the storyboard, generated voice, SRT timing, and final render before
 publishing. If voice-over is shorter than the assembled footage, the current
 renderer may end output at the shorter audio track because it uses
 `-shortest`; adjust media trims or narration length after review.
+
+
+## Video asset inspection and frame sampling
+
+Before matching a script to your footage, scan a folder of local videos:
+
+```bash
+python -m video_editor.media_inspector media/ --output-dir output/media_inspection --samples 3
+```
+
+The tool uses FFprobe to collect duration, resolution, frame rate, and codec,
+then FFmpeg to extract evenly spaced representative JPG frames. It writes
+`output/media_inspection/media_catalog.json` with one asset per video,
+including the source path, trim range, technical metadata, and sample-frame
+paths. Open the sampled frames, then fill in each asset's `tags` and
+`description` fields with accurate visual details. The matcher and production
+pipeline accept this inspector report directly.
+
+This is a media preparation/visual-review aid, not AI image recognition:
+the tool does not infer objects, actions, or scene meaning from frames. No
+external service receives your footage. Supported video extensions are MP4,
+MOV, MKV, WEBM, AVI, and M4V. FFmpeg and FFprobe must be installed and
+available on PATH.
