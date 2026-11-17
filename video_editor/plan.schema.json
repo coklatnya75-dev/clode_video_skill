@@ -104,6 +104,32 @@
           "minimum": 0,
           "default": 0,
           "description": "Optional external audio fade-out duration in seconds."
+        },
+        "transition_duration": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0,
+          "description": "Optional overlap duration in seconds for transitions between adjacent clips. Zero keeps hard cuts."
+        },
+        "transition": {
+          "type": "string",
+          "enum": [
+            "fade",
+            "wipeleft",
+            "wiperight",
+            "wipeup",
+            "wipedown",
+            "slideleft",
+            "slideright",
+            "slideup",
+            "slidedown",
+            "circleopen",
+            "circleclose",
+            "dissolve",
+            "pixelize"
+          ],
+          "default": "fade",
+          "description": "FFmpeg xfade transition style, used only when transition_duration is greater than zero."
         }
       },
       "additionalProperties": false
