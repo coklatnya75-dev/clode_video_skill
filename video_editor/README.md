@@ -431,6 +431,23 @@ replace a weak selection before rendering. The matcher still selects its top
 eligible candidate automatically; it does not visually verify the footage or
 optimize the entire sequence as a human editor would.
 
+### Shot variation across consecutive scenes
+
+The matcher now recognizes broad shot types from an optional catalog field
+(`shot_type`) or common wording in tags/descriptions: `wide`, `medium`,
+`close_up`, `detail`, and `aerial`. It adds a small ranking bonus when a
+candidate uses a shot type not seen in the previous two scenes. Relevance
+remains the main score; the bonus only nudges close candidates toward visual
+variety. The report shows the inferred `shot_type` and
+`shot_diversity_bonus` for transparency.
+
+You can control this in Python with `shot_diversity_weight` (0 to 0.2; default
+0.04), or in the pipeline CLI with `--shot-diversity-weight 0.04`. Set it to
+`0` to disable the preference. For best results, add accurate catalog metadata,
+for example `"shot_type": "close_up"`. Unknown shot types receive no bonus.
+This is metadata-based shot variety, not automatic camera-angle detection or
+visual editing intelligence; inspect the footage before publishing.
+
 
 ## Cross-scene transitions
 
