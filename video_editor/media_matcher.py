@@ -26,6 +26,28 @@ def _tokens(value: str) -> set[str]:
     return {word for word in words if len(word) > 2 and word not in _STOPWORDS}
 
 
+def _infer_shot_type(item: dict[str, Any]) -> str:
+    """Infer a broad shot category from explicit metadata and descriptive text."""
+    explicit = item.get("shot_type")
+    if isinstance(explicit, str) and explicit.strip():
+        return explicit.strip().lower().replace(" ", "_")
+    tags = item.get("tags", [])
+    description = item.get("description", "")
+    text = " ".join(tags) + " " + description
+    rules = (
+        ("aerial", ("aerial", "drone", "bird's eye", "bird eye", "udara", "dari atas")),
+        ("close_up", ("close-up", "close up", "macro", "wajah dekat", "sangat dekat")),
+        ("detail", ("detail shot", "extreme close", "tekstur", "detail")),
+        ("wide", ("wide shot", "long shot", "establishing", "pemandangan luas", "sudut lebar")),
+        ("medium", ("medium shot", "waist up", "setengah badan", "medium")),
+    )
+    lowered = text.lower()
+    for label, phrases in rules:
+        if any(phrase in lowered for phrase in phrases):
+            return label
+    return "unknown"
+
+
 def _catalog_text(item: dict[str, Any]) -> str:
     tags = item.get("tags", [])
     description = item.get("description", "")
@@ -71,6 +93,7 @@ def match_media_to_scenes(
     semantic_match: bool = False,
     semantic_model_name: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
     _semantic_encoder: Any = None,
+    shot_diversity_weight: float = 0.04,
 ) -> dict[str, Any]:
     """Rank media by keyword overlap, optionally blended with multilingual similarity.
 
@@ -85,6 +108,8 @@ def match_media_to_scenes(
         raise MediaMatchError("Media catalog must be a non-empty list or an inspector report with an assets list.")
     if not 0 <= minimum_score <= 1:
         raise MediaMatchError("minimum_score must be between 0 and 1.")
+    if not 0 <= shot_diversity_weight <= 0.2:
+        raise MediaMatchError("shot_diversity_weight must be between 0 and 0.2.")
 
     prepared = []
     for index, item in enumerate(catalog):
@@ -96,12 +121,13 @@ def match_media_to_scenes(
         if isinstance(end, bool) or not isinstance(end, (int, float)) or end <= start:
             raise MediaMatchError(f"catalog[{index}].end must be greater than start.")
         text = _catalog_text(item)
-        prepared.append((item, _tokens(text), text))
+        prepared.append((item, _tokens(text), text, _infer_shot_type(item)))
 
     encoder = (_semantic_encoder or _load_semantic_encoder(semantic_model_name)) if semantic_match else None
     used: set[int] = set()
     matches = []
     manifest = []
+    recent_shot_types: list[str] = []
     for scene_index, scene in enumerate(scenes):
         if not isinstance(scene, dict) or not isinstance(scene.get("narration"), str):
             raise MediaMatchError(f"scenes[{scene_index}] must include narration text.")
@@ -110,23 +136,33 @@ def match_media_to_scenes(
         candidates = [entry[2] for entry in prepared]
         semantic_values = _semantic_scores(narration, candidates, encoder) if semantic_match else [0.0] * len(prepared)
         ranked = []
-        for media_index, (item, media_tokens, _) in enumerate(prepared):
+        for media_index, (item, media_tokens, _, shot_type) in enumerate(prepared):
             if not allow_reuse and media_index in used:
                 continue
             overlap = query & media_tokens
             keyword_score = len(overlap) / len(query) if query else 0.0
             semantic_score = semantic_values[media_index]
             score = 0.35 * keyword_score + 0.65 * semantic_score if semantic_match else keyword_score
-            ranked.append((score, len(overlap), media_index, overlap, semantic_score, keyword_score))
-        ranked.sort(key=lambda row: (row[0], row[1]), reverse=True)
+            # A small bounded bonus prefers a different shot size after a recent
+            # repetition, while relevance remains the primary score.
+            diversity_bonus = (
+                shot_diversity_weight
+                if shot_type != "unknown" and shot_type not in recent_shot_types[-2:]
+                else 0.0
+            )
+            ranked.append((score, len(overlap), media_index, overlap, semantic_score, keyword_score, diversity_bonus))
+        ranked.sort(key=lambda row: (row[0] + row[6], row[0], row[1]), reverse=True)
         if not ranked or ranked[0][0] < minimum_score or (not semantic_match and ranked[0][1] == 0):
             scene_number = scene.get("scene", scene_index + 1)
             raise MediaMatchError(
                 f"No suitable media match for scene {scene_number}. "
                 "Add relevant tags/description, enable semantic matching, or lower minimum_score."
             )
-        score, _, media_index, overlap, semantic_score, keyword_score = ranked[0]
+        score, _, media_index, overlap, semantic_score, keyword_score, diversity_bonus = ranked[0]
         item = prepared[media_index][0]
+        selected_shot_type = prepared[media_index][3]
+        if selected_shot_type != "unknown":
+            recent_shot_types.append(selected_shot_type)
         used.add(media_index)
         manifest.append({"path": item["path"], "start": item.get("start", 0), "end": item["end"]})
 
@@ -138,13 +174,14 @@ def match_media_to_scenes(
             return "low"
 
         alternatives = []
-        for candidate_score, _, candidate_index, candidate_overlap, candidate_semantic, candidate_keyword in ranked[1:4]:
+        for candidate_score, _, candidate_index, candidate_overlap, candidate_semantic, candidate_keyword, candidate_bonus in ranked[1:4]:
             candidate = prepared[candidate_index][0]
             alternative = {
                 "path": candidate["path"],
                 "start": candidate.get("start", 0),
                 "end": candidate["end"],
                 "score": round(candidate_score, 3),
+                "shot_type": prepared[candidate_index][3],
                 "matched_keywords": sorted(candidate_overlap),
             }
             if semantic_match:
@@ -162,6 +199,8 @@ def match_media_to_scenes(
             "tags": item.get("tags", []),
             "score": round(score, 3),
             "confidence": confidence_label(score),
+            "shot_type": selected_shot_type,
+            "shot_diversity_bonus": round(diversity_bonus, 3),
             "matched_keywords": sorted(overlap),
             "alternatives": alternatives,
             "review_required": True,
@@ -173,6 +212,7 @@ def match_media_to_scenes(
 
     return {
         "method": "hybrid_keyword_multilingual_semantic" if semantic_match else "keyword_overlap",
+        "shot_diversity_weight": shot_diversity_weight,
         "notice": (
             "Hybrid scores combine 35% keyword overlap and 65% multilingual embedding similarity. "
             "Similarity is a suggestion, not proof of visual relevance; review every match."
