@@ -7,13 +7,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 from .editor import render_video
 from .media_matcher import match_media_to_scenes
-from .storyboard import build_storyboard
+from .storyboard import build_storyboard, sync_storyboard_to_duration
 from .transcribe import transcribe_to_srt
 from .voiceover import generate_voiceover
 from .visual_captioner import caption_media_catalog
@@ -21,6 +23,26 @@ from .visual_captioner import caption_media_catalog
 
 class PipelineError(RuntimeError):
     """Raised when an automatic production stage fails."""
+
+
+
+def probe_audio_duration(audio_path: str) -> float:
+    """Return audio duration in seconds using FFprobe."""
+    ffprobe = shutil.which("ffprobe")
+    if not ffprobe:
+        raise PipelineError("FFprobe is required to synchronize scenes to voice-over; install FFmpeg/FFprobe or disable sync.")
+    try:
+        result = subprocess.run(
+            [ffprobe, "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", audio_path],
+            check=True, capture_output=True, text=True, timeout=30,
+        )
+        duration = float(result.stdout.strip())
+    except (subprocess.CalledProcessError, ValueError, subprocess.TimeoutExpired) as exc:
+        raise PipelineError(f"Could not read voice-over duration: {exc}") from exc
+    if duration <= 0:
+        raise PipelineError("Voice-over duration reported by FFprobe must be positive.")
+    return duration
 
 
 def run_pipeline(
@@ -41,6 +63,7 @@ def run_pipeline(
     caption_model: str = "Salesforce/blip-image-captioning-base",
     caption_device: str = "auto",
     render: bool = True,
+    sync_scenes_to_voiceover: bool = True,
 ) -> dict[str, Any]:
     """Run the complete script-to-MP4 workflow and return artifact paths."""
     workspace = Path(work_dir).expanduser().resolve()
@@ -105,6 +128,13 @@ def run_pipeline(
             voiceover_file, output_dir=str(subtitles_dir),
             language="Indonesian", model=whisper_model,
         )
+        if sync_scenes_to_voiceover:
+            measured_duration = probe_audio_duration(voiceover_file)
+            storyboard = sync_storyboard_to_duration(storyboard, measured_duration)
+            storyboard_path.write_text(
+                json.dumps(storyboard, ensure_ascii=False, indent=2) + "\\n",
+                encoding="utf-8",
+            )
         edit_plan = storyboard["edit_plan"]
         edit_plan["audio"] = voiceover_file
         edit_plan["subtitles"] = subtitle_file
@@ -157,6 +187,7 @@ def main() -> int:
     parser.add_argument("--caption-model", default="Salesforce/blip-image-captioning-base")
     parser.add_argument("--caption-device", choices=("auto", "cpu", "cuda"), default="auto")
     parser.add_argument("--plan-only", action="store_true", help="Prepare all assets and edit plan but do not render.")
+    parser.add_argument("--no-sync-scenes", action="store_true", help="Keep estimated scene durations instead of syncing to measured voice-over length.")
     args = parser.parse_args()
 
     try:
@@ -178,6 +209,7 @@ def main() -> int:
             caption_model=args.caption_model,
             caption_device=args.caption_device,
             render=not args.plan_only,
+            sync_scenes_to_voiceover=not args.no_sync_scenes,
         )
     except (OSError, json.JSONDecodeError, PipelineError, ValueError) as exc:
         print(f"video-pipeline: {exc}", file=sys.stderr)
