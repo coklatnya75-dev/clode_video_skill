@@ -103,6 +103,30 @@ def build_storyboard(
     }
 
 
+
+def sync_storyboard_to_duration(storyboard: dict[str, Any], voiceover_seconds: float) -> dict[str, Any]:
+    """Scale scene display durations to the measured voice-over length."""
+    if isinstance(voiceover_seconds, bool) or not isinstance(voiceover_seconds, (int, float)) or voiceover_seconds <= 0:
+        raise StoryboardError("voiceover_seconds must be a positive number.")
+    scenes = storyboard.get("scenes")
+    clips = storyboard.get("edit_plan", {}).get("clips")
+    if not isinstance(scenes, list) or not scenes or not isinstance(clips, list) or len(scenes) != len(clips):
+        raise StoryboardError("Storyboard scenes and edit-plan clips must have matching entries.")
+    weights = [max(float(scene.get("estimated_voiceover_seconds", 0)), 0.01) for scene in scenes]
+    weight_total = sum(weights)
+    durations = [float(voiceover_seconds) * weight / weight_total for weight in weights]
+    # Round all but the last scene; assign the remainder to avoid cumulative drift.
+    rounded = [round(value, 3) for value in durations[:-1]]
+    rounded.append(round(float(voiceover_seconds) - sum(rounded), 3))
+    for scene, clip, duration in zip(scenes, clips, rounded):
+        scene["synchronized_voiceover_seconds"] = duration
+        scene["duration_note"] = "Output scene duration is aligned proportionally to measured voice-over length."
+        clip["output_duration"] = duration
+    storyboard["voiceover_duration_seconds"] = round(float(voiceover_seconds), 3)
+    storyboard["duration_sync"] = "Scene durations distributed by estimated narration word-count weights."
+    return storyboard
+
+
 def create_storyboard_file(
     script_path: str,
     media_manifest_path: str,
