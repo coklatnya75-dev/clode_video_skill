@@ -132,7 +132,7 @@ def run_pipeline(
             measured_duration = probe_audio_duration(voiceover_file)
             storyboard = sync_storyboard_to_duration(storyboard, measured_duration)
             storyboard_path.write_text(
-                json.dumps(storyboard, ensure_ascii=False, indent=2) + "\\n",
+                json.dumps(storyboard, ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
             )
         edit_plan = storyboard["edit_plan"]
