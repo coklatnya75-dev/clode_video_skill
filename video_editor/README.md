@@ -359,3 +359,31 @@ Automatic captioning requires the optional `torch`, `transformers`, and
 continues to require Edge TTS, local Whisper, and FFmpeg for voice-over,
 subtitles, and rendering. Caption matching remains a suggestion: review the
 captioned catalog and every scene match before publishing.
+
+
+## Scene-level temporal video matching
+
+For more precise footage selection, split long source videos into short time
+windows during inspection. Each window becomes its own catalog candidate with
+its own sampled frames and source `start`/`end` trim points:
+
+```bash
+python -m video_editor.media_inspector media/ --output-dir output/inspection \
+  --samples 2 --segment-duration 5
+```
+
+Then run the production pipeline with AI captioning:
+
+```bash
+python -m video_editor.pipeline script.txt output/inspection/media_catalog.json \
+  --auto-caption --output-video output/shorts.mp4 --work-dir output/project
+```
+
+For example, a 13-second source video with `--segment-duration 5` produces
+three independent candidates (0–5s, 5–10s, and 10–13s). BLIP captions each
+segment's sample frames separately; the keyword matcher can then select a
+specific time window and the edit plan trims to that window rather than using
+the entire source clip. The last segment may be shorter than the requested
+window. This is temporal segmentation, not full action recognition: a short
+sample can still miss an event, so review the frames, captions, and selected
+trim points before rendering.
