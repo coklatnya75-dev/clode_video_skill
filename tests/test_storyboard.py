@@ -1,6 +1,6 @@
 import unittest
 
-from video_editor.storyboard import StoryboardError, build_storyboard, split_script
+from video_editor.storyboard import StoryboardError, build_storyboard, split_script, sync_storyboard_to_duration
 
 
 class StoryboardTests(unittest.TestCase):
@@ -23,6 +23,25 @@ class StoryboardTests(unittest.TestCase):
         self.assertEqual(result["edit_plan"]["clips"][1]["end"], 5)
         self.assertEqual(result["edit_plan"]["audio"], "output/narasi.mp3")
         self.assertEqual(result["edit_plan"]["output"]["width"], 1080)
+
+    def test_syncs_scene_durations_to_measured_voiceover(self):
+        result = build_storyboard(
+            "Satu dua tiga empat. Lima enam.",
+            [
+                {"path": "a.mp4", "start": 0, "end": 2},
+                {"path": "b.mp4", "start": 0, "end": 2},
+            ],
+        )
+        synced = sync_storyboard_to_duration(result, 10.0)
+        durations = [clip["output_duration"] for clip in synced["edit_plan"]["clips"]]
+        self.assertAlmostEqual(sum(durations), 10.0, places=3)
+        self.assertAlmostEqual(durations[0] / durations[1], 2.0, places=2)
+        self.assertEqual(synced["voiceover_duration_seconds"], 10.0)
+
+    def test_rejects_non_positive_voiceover_duration(self):
+        result = build_storyboard("Satu kalimat.", [{"path": "a.mp4", "start": 0, "end": 2}])
+        with self.assertRaises(StoryboardError):
+            sync_storyboard_to_duration(result, 0)
 
     def test_requires_exact_media_scene_mapping(self):
         with self.assertRaises(StoryboardError):
