@@ -304,3 +304,29 @@ the tool does not infer objects, actions, or scene meaning from frames. No
 external service receives your footage. Supported video extensions are MP4,
 MOV, MKV, WEBM, AVI, and M4V. FFmpeg and FFprobe must be installed and
 available on PATH.
+
+
+## Optional AI visual captions for sampled frames
+
+After inspecting a video folder and extracting sample frames, you can use the
+optional BLIP image-captioning model to create draft descriptions:
+
+```bash
+pip install torch transformers pillow
+python -m video_editor.visual_captioner output/media_inspection/media_catalog.json \
+  --output output/media_inspection/media_catalog_captioned.json
+```
+
+The first run downloads the model `Salesforce/blip-image-captioning-base` from
+Hugging Face and may require substantial disk space, memory, and internet access.
+Use `--device cpu` to force CPU or `--device cuda` when a compatible CUDA
+setup is available. The generated descriptions are added from the sampled
+frames; existing tags are not invented or overwritten. You can review and edit
+the descriptions/tags, then pass the captioned catalog directly to
+`video_editor.media_matcher` or `video_editor.pipeline`.
+
+This is a real image-captioning model, but it only sees a few still frames per
+video. It may miss actions, context, objects between samples, and can produce
+incorrect captions. Captions are generated locally after the model is
+downloaded; no video or frame is uploaded by this tool. Always inspect the
+sample frames and correct captions before using them to select footage.
