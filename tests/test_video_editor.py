@@ -45,7 +45,7 @@ class VideoEditorTests(unittest.TestCase):
             with patch("video_editor.editor.shutil.which", return_value="/usr/bin/ffmpeg"):
                 command = build_ffmpeg_command(plan)
             graph = command[command.index("-filter_complex") + 1]
-            self.assertIn("tpad=stop_mode=clone:stop_duration=3.0", graph)
+            self.assertIn("tpad=stop_mode=clone:stop_duration=2.0", graph)
 
     def test_fade_filters_are_added(self):
         with tempfile.TemporaryDirectory() as temp:
