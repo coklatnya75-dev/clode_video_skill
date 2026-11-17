@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Short-form video edit plan",
+  "type": "object",
+  "required": [
+    "clips",
+    "output"
+  ],
+  "properties": {
+    "clips": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "end"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "start": {
+            "type": "number",
+            "minimum": 0,
+            "default": 0
+          },
+          "end": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "audio": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Optional external voice-over or music track."
+    },
+    "subtitles": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Optional SRT subtitle file to burn into the video."
+    },
+    "output": {
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 2,
+          "default": 1080
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 2,
+          "default": 1920
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 30
+        },
+        "crf": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 51,
+          "default": 20
+        },
+        "preset": {
+          "type": "string",
+          "default": "medium"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
