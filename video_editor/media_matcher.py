@@ -50,8 +50,10 @@ def match_media_to_scenes(
     """Rank catalog items for each scene using normalized keyword overlap."""
     if not isinstance(scenes, list) or not scenes:
         raise MediaMatchError("Storyboard must contain a non-empty scenes list.")
+    if isinstance(catalog, dict):
+        catalog = catalog.get("assets")
     if not isinstance(catalog, list) or not catalog:
-        raise MediaMatchError("Media catalog must be a non-empty list.")
+        raise MediaMatchError("Media catalog must be a non-empty list or an inspector report with an assets list.")
     if not 0 <= minimum_score <= 1:
         raise MediaMatchError("minimum_score must be between 0 and 1.")
 
@@ -112,7 +114,7 @@ def match_media_to_scenes(
 def main() -> int:
     parser = argparse.ArgumentParser(description="Match storyboard scenes to a tagged media catalog.")
     parser.add_argument("storyboard", help="Storyboard JSON produced by video_editor.storyboard.")
-    parser.add_argument("catalog", help="JSON array of media objects with path/start/end/tags/description.")
+    parser.add_argument("catalog", help="JSON array or inspector report object with an assets array.")
     parser.add_argument("--output", default="media_matches.json", help="Output JSON file.")
     parser.add_argument("--minimum-score", type=float, default=0.08)
     parser.add_argument("--allow-reuse", action="store_true", help="Allow one media file to serve multiple scenes.")
