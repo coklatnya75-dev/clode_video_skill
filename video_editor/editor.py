@@ -1,8 +1,4 @@
-"""Render short-form videos from a validated JSON edit plan using FFmpeg.
-
-This MVP intentionally performs deterministic media operations only. It does not
-call transcription, text-to-speech, or generative-video providers.
-"""
+"""Render short-form videos from a validated JSON edit plan using FFmpeg."""
 from __future__ import annotations
 
 import json
@@ -24,22 +20,31 @@ def _require_file(value: str, label: str) -> Path:
 
 
 def _escape_filter_path(path: Path) -> str:
-    # Escape characters meaningful to FFmpeg filter arguments.
-    return str(path).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+    """Escape a local path for FFmpeg's subtitles filter."""
+    return (
+        str(path)
+        .replace("\\", "\\\\")
+        .replace(":", "\\:")
+        .replace("'", "\\'")
+        .replace(",", "\\,")
+        .replace("[", "\\[")
+        .replace("]", "\\]")
+    )
 
 
 def validate_plan(plan: dict[str, Any]) -> None:
+    if not isinstance(plan, dict):
+        raise VideoEditError("Plan root must be an object.")
     clips = plan.get("clips")
     if not isinstance(clips, list) or not clips:
         raise VideoEditError("Plan must contain a non-empty 'clips' list.")
     for index, clip in enumerate(clips):
         if not isinstance(clip, dict) or not isinstance(clip.get("path"), str):
             raise VideoEditError(f"clips[{index}] must include a path.")
-        start = clip.get("start", 0)
-        end = clip.get("end")
-        if not isinstance(start, (int, float)) or start < 0:
+        start, end = clip.get("start", 0), clip.get("end")
+        if isinstance(start, bool) or not isinstance(start, (int, float)) or start < 0:
             raise VideoEditError(f"clips[{index}].start must be >= 0.")
-        if not isinstance(end, (int, float)) or end <= start:
+        if isinstance(end, bool) or not isinstance(end, (int, float)) or end <= start:
             raise VideoEditError(f"clips[{index}].end must be greater than start.")
     output = plan.get("output")
     if not isinstance(output, dict) or not isinstance(output.get("path"), str):
@@ -48,6 +53,18 @@ def validate_plan(plan: dict[str, Any]) -> None:
         raise VideoEditError("subtitles must be a file path or null.")
     if plan.get("audio") is not None and not isinstance(plan["audio"], str):
         raise VideoEditError("audio must be a file path or null.")
+    for key, default, minimum in (("width", 1080, 2), ("height", 1920, 2), ("fps", 30, 1)):
+        value = output.get(key, default)
+        if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+            raise VideoEditError(f"output.{key} must be an integer >= {minimum}.")
+    if output.get("width", 1080) % 2 or output.get("height", 1920) % 2:
+        raise VideoEditError("Output width and height must be even for yuv420p.")
+    crf = output.get("crf", 20)
+    if isinstance(crf, bool) or not isinstance(crf, int) or not 0 <= crf <= 51:
+        raise VideoEditError("output.crf must be an integer from 0 to 51.")
+    preset = output.get("preset", "medium")
+    if not isinstance(preset, str) or not preset:
+        raise VideoEditError("output.preset must be a non-empty string.")
 
 
 def build_ffmpeg_command(plan: dict[str, Any]) -> list[str]:
@@ -56,17 +73,13 @@ def build_ffmpeg_command(plan: dict[str, Any]) -> list[str]:
     if not ffmpeg:
         raise VideoEditError("FFmpeg is not installed or is not on PATH.")
 
-    clips = plan["clips"]
     output_cfg = plan["output"]
-    width = int(output_cfg.get("width", 1080))
-    height = int(output_cfg.get("height", 1920))
-    fps = int(output_cfg.get("fps", 30))
-    if width < 2 or height < 2 or fps < 1:
-        raise VideoEditError("Output width/height must be >= 2 and fps >= 1.")
-
+    width, height = output_cfg.get("width", 1080), output_cfg.get("height", 1920)
+    fps = output_cfg.get("fps", 30)
     command = [ffmpeg, "-y"]
     filters: list[str] = []
-    for i, clip in enumerate(clips):
+
+    for i, clip in enumerate(plan["clips"]):
         source = _require_file(clip["path"], f"clips[{i}]")
         command += ["-i", str(source)]
         start, end = float(clip.get("start", 0)), float(clip["end"])
@@ -76,37 +89,33 @@ def build_ffmpeg_command(plan: dict[str, Any]) -> list[str]:
             f"crop={width}:{height},fps={fps},setsar=1,format=yuv420p[v{i}]"
         )
 
-    concat_inputs = "".join(f"[v{i}]" for i in range(len(clips)))
-    filters.append(f"{concat_inputs}concat=n={len(clips)}:v=1:a=0[vout]")
+    labels = "".join(f"[v{i}]" for i in range(len(plan["clips"])))
+    filters.append(f"{labels}concat=n={len(plan['clips'])}:v=1:a=0[vout]")
+    video_map = "[vout]"
 
-    audio_path = plan.get("audio")
-    if audio_path:
-        audio = _require_file(audio_path, "audio")
+    if plan.get("audio"):
+        audio = _require_file(plan["audio"], "audio")
         command += ["-i", str(audio)]
-    subtitles_path = plan.get("subtitles")
-    if subtitles_path:
-        subtitles = _require_file(subtitles_path, "subtitles")
-        escaped = _escape_filter_path(subtitles)
-        filters[-1] += f";[vout]subtitles='{escaped}'[vsub]"
-        video_map = "[vsub]"
-    else:
-        video_map = "[vout]"
 
-    command += [
-        "-filter_complex", ";".join(filters),
-        "-map", video_map,
-    ]
-    if audio_path:
-        command += ["-map", f"{len(clips)}:a:0", "-c:a", "aac", "-b:a", "192k", "-shortest"]
+    if plan.get("subtitles"):
+        subtitles = _require_file(plan["subtitles"], "subtitles")
+        filters.append(f"[vout]subtitles='{_escape_filter_path(subtitles)}'[vsub]")
+        video_map = "[vsub]"
+
+    command += ["-filter_complex", ";".join(filters), "-map", video_map]
+    if plan.get("audio"):
+        command += ["-map", f"{len(plan['clips'])}:a:0", "-c:a", "aac", "-b:a", "192k", "-shortest"]
     else:
         command += ["-an"]
 
     destination = Path(output_cfg["path"]).expanduser().resolve()
     destination.parent.mkdir(parents=True, exist_ok=True)
     command += [
-        "-c:v", "libx264", "-preset", str(output_cfg.get("preset", "medium")),
-        "-crf", str(int(output_cfg.get("crf", 20))),
-        "-movflags", "+faststart", str(destination),
+        "-c:v", "libx264",
+        "-preset", output_cfg.get("preset", "medium"),
+        "-crf", str(output_cfg.get("crf", 20)),
+        "-movflags", "+faststart",
+        str(destination),
     ]
     return command
 
@@ -124,7 +133,7 @@ def render_video(plan: dict[str, Any], *, timeout: int = 3600) -> str:
     return str(Path(plan["output"]["path"]).expanduser().resolve())
 
 
-def render_plan_file(plan_path: str) -> str:
+def render_plan_file(plan_path: str, *, timeout: int = 3600) -> str:
     """Load a JSON edit plan and render it."""
     path = _require_file(plan_path, "Plan")
     try:
@@ -133,4 +142,4 @@ def render_plan_file(plan_path: str) -> str:
         raise VideoEditError(f"Invalid JSON plan: {exc}") from exc
     if not isinstance(plan, dict):
         raise VideoEditError("The JSON plan root must be an object.")
-    return render_video(plan)
+    return render_video(plan, timeout=timeout)
