@@ -71,6 +71,24 @@ class MediaMatcherTests(unittest.TestCase):
         self.assertEqual(result["method"], "hybrid_keyword_multilingual_semantic")
         self.assertGreater(result["matches"][0]["semantic_similarity"], 0.9)
 
+    def test_prefers_different_shot_type_when_relevance_is_equal(self):
+        catalog = [
+            {"path": "wide.mp4", "start": 0, "end": 4,
+             "tags": ["gurita", "berenang"], "description": "wide shot underwater"},
+            {"path": "close.mp4", "start": 0, "end": 4,
+             "tags": ["gurita", "berenang"], "description": "close-up octopus"},
+            {"path": "aerial.mp4", "start": 0, "end": 4,
+             "tags": ["gurita", "berenang"], "description": "aerial view of ocean"},
+        ]
+        scenes = [
+            {"scene": 1, "narration": "Gurita berenang"},
+            {"scene": 2, "narration": "Gurita berenang"},
+        ]
+        result = match_media_to_scenes(scenes, catalog)
+        self.assertEqual(result["matches"][0]["shot_type"], "wide")
+        self.assertEqual(result["matches"][1]["shot_type"], "close_up")
+        self.assertGreater(result["matches"][1]["shot_diversity_bonus"], 0)
+
     def test_rejects_unmatched_scene(self):
         with self.assertRaises(MediaMatchError):
             match_media_to_scenes(
