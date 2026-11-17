@@ -145,7 +145,7 @@ def sync_storyboard_to_srt(
         raise StoryboardError(f"Subtitle file not found: {srt_file}")
     raw = srt_file.read_text(encoding="utf-8-sig")
     cue_pattern = re.compile(
-        r"(?m)^(\d{2}:\d{2}:\d{2}[,.]\d{3})\\s*-->\\s*"
+        r"(?m)^(\d{2}:\d{2}:\d{2}[,.]\d{3})\s*-->\s*"
         r"(\d{2}:\d{2}:\d{2}[,.]\d{3}).*$"
     )
     cues = []
