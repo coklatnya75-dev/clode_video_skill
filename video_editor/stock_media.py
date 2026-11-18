@@ -148,9 +148,21 @@ def download_commons_video(query: str, destination: Path, *, used_ids: set[str] 
         # The file page is recorded in the catalog for attribution.
         if "penguin" in query.lower():
             title = "Emperor_penguins_–_the_biggest_of_all.webm"
-            fallback_url = "https://commons.wikimedia.org/wiki/Special:FilePath/" + quote(title, safe="")
-            _download(fallback_url, destination.with_suffix(".webm"))
+            # Resolve the original upload URL through the Commons API instead
+            # of Special:FilePath, which can be rate-limited on hosted runners.
+            exact_params = urlencode({
+                "action": "query", "format": "json", "formatversion": 2,
+                "titles": "File:" + title,
+                "prop": "imageinfo", "iiprop": "url|extmetadata|mime",
+            })
+            exact_data = _json_request("https://commons.wikimedia.org/w/api.php?" + exact_params)
+            exact_pages = exact_data.get("query", {}).get("pages", [])
+            exact_info = (exact_pages[0].get("imageinfo") or [{}])[0] if exact_pages else {}
+            fallback_url = exact_info.get("url")
+            if not fallback_url:
+                raise StockMediaError("Commons API did not return the original penguin video URL.")
             media_path = destination.with_suffix(".webm")
+            _download(fallback_url, media_path)
             duration = _probe_duration(media_path)
             used_ids.add(title)
             return {
