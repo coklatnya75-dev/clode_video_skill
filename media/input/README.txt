@@ -1,0 +1,1 @@
+Upload footage video yang sudah kamu unduh ke folder ini. Format: MP4, MOV, MKV, WEBM, AVI, atau M4V. Untuk video penguin, gunakan nama file yang jelas seperti penguin-antarctica.mp4. Workflow akan memotong footage menjadi segmen dan menyusun video Reels.
