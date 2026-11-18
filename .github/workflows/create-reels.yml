@@ -8,7 +8,18 @@ on:
       - ".github/workflows/create-reels.yml"
       - "video_editor/stock_media.py"
       - "tests/test_stock_media.py"
-      - "media/input/**"
+      - "media/input/*.mp4"
+      - "media/input/*.mov"
+      - "media/input/*.mkv"
+      - "media/input/*.webm"
+      - "media/input/*.avi"
+      - "media/input/*.m4v"
+      - "media/input/**/*.mp4"
+      - "media/input/**/*.mov"
+      - "media/input/**/*.mkv"
+      - "media/input/**/*.webm"
+      - "media/input/**/*.avi"
+      - "media/input/**/*.m4v"
   workflow_dispatch:
     inputs:
       script:
