@@ -1,6 +1,11 @@
 name: Create Reels Video
 
 on:
+  push:
+    branches:
+      - feature/ai-video-editor
+    paths:
+      - ".github/workflows/create-reels.yml"
   workflow_dispatch:
     inputs:
       script:
@@ -52,7 +57,7 @@ jobs:
 
       - name: Prepare narration
         env:
-          SCRIPT: ${{ inputs.script }}
+          SCRIPT: ${{ inputs.script || 'Pernah dengar ada ayah yang rela tidak makan selama berbulan-bulan demi anaknya? Inilah penguin kaisar. Setelah betina bertelur, ia pergi ke laut mencari makanan. Sang jantan menjaga telur di atas kedua kakinya dan menutupinya dengan lipatan kulit agar tetap hangat. Selama sekitar dua bulan, ia bertahan di tengah dinginnya Antarktika tanpa makan. Para penguin jantan juga berkumpul rapat untuk saling menghangatkan tubuh. Sungguh luar biasa perjuangan ayah penguin kaisar.' }}
         run: |
           mkdir -p work output
           printf '%s\n' "$SCRIPT" > work/script.txt
@@ -66,7 +71,7 @@ jobs:
       - name: Generate voice, subtitles and render MP4
         run: |
           python -m video_editor.pipeline work/script.txt work/media/media_catalog.json \
-            --voice "${{ inputs.voice }}" \
+            --voice "${{ inputs.voice || 'id-ID-ArdiNeural' }}" \
             --output-video "output/${{ inputs.output_name }}" \
             --work-dir work/project \
             --whisper-model base
