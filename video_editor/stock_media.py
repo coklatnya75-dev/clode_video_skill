@@ -13,7 +13,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from .storyboard import split_script
@@ -148,7 +148,7 @@ def download_commons_video(query: str, destination: Path, *, used_ids: set[str] 
         # The file page is recorded in the catalog for attribution.
         if "penguin" in query.lower():
             title = "Emperor_penguins_–_the_biggest_of_all.webm"
-            fallback_url = "https://commons.wikimedia.org/wiki/Special:FilePath/" + title
+            fallback_url = "https://commons.wikimedia.org/wiki/Special:FilePath/" + quote(title, safe="")
             _download(fallback_url, destination.with_suffix(".webm"))
             media_path = destination.with_suffix(".webm")
             duration = _probe_duration(media_path)
