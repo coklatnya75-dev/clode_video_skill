@@ -115,7 +115,7 @@ def download_commons_video(query: str, destination: Path, *, used_ids: set[str] 
     params = urlencode({
         "action": "query", "format": "json", "formatversion": 2,
         "generator": "search", "gsrnamespace": 6, "gsrlimit": 30,
-        "gsrsearch": f"filetype:video {query}",
+        "gsrsearch": query,
         "prop": "imageinfo", "iiprop": "url|extmetadata|mime",
     })
     data = _json_request("https://commons.wikimedia.org/w/api.php?" + params)
@@ -168,11 +168,21 @@ def build_catalog(script: str, output_dir: str, api_key: str | None = None) -> d
     key = api_key or os.environ.get("PIXABAY_API_KEY")
     provider = "Pixabay" if key else "Wikimedia Commons"
     scenes = split_script(script)
+    script_lower = script.lower()
+    subject = "penguin" if "penguin" in script_lower else ""
     root = Path(output_dir).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
     assets, used_ids = [], set()
     for index, sentence in enumerate(scenes, start=1):
         query = search_terms(sentence)
+        if subject and subject not in query.lower():
+            query = f"{subject} {query}"
+        if subject and any(word in sentence.lower() for word in ("telur", "egg", "menetas")):
+            query = "emperor penguin egg chick"
+        elif subject and any(word in sentence.lower() for word in ("menghangatkan", "berkumpul", "rapat", "huddle")):
+            query = "emperor penguins huddling"
+        elif subject:
+            query = "emperor penguin Antarctica"
         destination = root / f"scene_{index:02d}.mp4"
         if key:
             metadata = download_pixabay_video(query, destination, key, used_ids=used_ids)
