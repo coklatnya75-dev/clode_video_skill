@@ -8,7 +8,7 @@ from video_editor.stock_media import build_catalog, search_terms
 
 class StockMediaTests(unittest.TestCase):
     def test_search_terms_uses_meaningful_words(self):
-        self.assertEqual(search_terms("Penguin kaisar menjaga telur di Antarktika"), "penguin kaisar menjaga telur Antarktika")
+        self.assertEqual(search_terms("Penguin kaisar menjaga telur di Antarktika"), "penguin kaisar menjaga telur antarktika")
 
     def test_build_catalog_uses_commons_without_pixabay_key(self):
         def fake_download(query, destination, *, used_ids=None):
