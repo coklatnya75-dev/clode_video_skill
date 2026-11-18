@@ -8,6 +8,7 @@ on:
       - ".github/workflows/create-reels.yml"
       - "video_editor/stock_media.py"
       - "tests/test_stock_media.py"
+      - "media/input/**"
   workflow_dispatch:
     inputs:
       script:
@@ -63,11 +64,27 @@ jobs:
           mkdir -p work output
           printf '%s\n' "$SCRIPT" > work/script.txt
 
-      - name: Find and download royalty-free footage
-        env:
-          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+      - name: Inspect user-provided footage
         run: |
-          python -m video_editor.stock_media work/script.txt --output-dir work/media
+          if ! find media/input -type f \\( -iname '*.mp4' -o -iname '*.mov' -o -iname '*.mkv' -o -iname '*.webm' -o -iname '*.avi' -o -iname '*.m4v' \\) -print -quit | grep -q .; then
+            echo "Belum ada video. Upload minimal satu file video ke folder media/input lalu jalankan ulang workflow."
+            exit 1
+          fi
+          python -m video_editor.media_inspector media/input --output-dir work/media --segment-duration 4
+          python - <<'PY'
+          import json, re
+          from pathlib import Path
+          catalog_path = Path("work/media/media_catalog.json")
+          catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+          script = Path("work/script.txt").read_text(encoding="utf-8").lower()
+          script_terms = set(re.findall(r"[a-z0-9]+", script))
+          for asset in catalog["assets"]:
+              filename_terms = set(re.findall(r"[a-z0-9]+", Path(asset["path"]).stem.lower()))
+              asset["tags"] = sorted(filename_terms | script_terms)
+              asset["description"] = "Footage provided by user: " + Path(asset["path"]).name
+          catalog_path.write_text(json.dumps(catalog, ensure_ascii=False, indent=2), encoding="utf-8")
+          print(f"Prepared {len(catalog['assets'])} footage segments.")
+          PY
 
       - name: Generate voice, subtitles and render MP4
         run: |
