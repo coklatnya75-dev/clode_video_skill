@@ -39,16 +39,16 @@ def generate_voiceover(
     if isinstance(timeout, bool) or not isinstance(timeout, int) or timeout < 1:
         raise VoiceoverError("timeout must be a positive integer.")
 
+    destination = Path(output_path).expanduser().resolve()
+    if destination.suffix.lower() != ".mp3":
+        raise VoiceoverError("Output file must use the .mp3 extension.")
+
     edge_tts = shutil.which("edge-tts")
     if not edge_tts:
         raise VoiceoverError(
             "edge-tts CLI is not installed or not on PATH. "
             "Install it with: pip install edge-tts"
         )
-
-    destination = Path(output_path).expanduser().resolve()
-    if destination.suffix.lower() != ".mp3":
-        raise VoiceoverError("Output file must use the .mp3 extension.")
     destination.parent.mkdir(parents=True, exist_ok=True)
     command = [
         edge_tts, "--voice", voice, "--text", text,
