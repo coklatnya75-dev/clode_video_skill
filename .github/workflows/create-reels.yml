@@ -6,6 +6,8 @@ on:
       - feature/ai-video-editor
     paths:
       - ".github/workflows/create-reels.yml"
+      - "video_editor/stock_media.py"
+      - "tests/test_stock_media.py"
   workflow_dispatch:
     inputs:
       script:
