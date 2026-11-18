@@ -22,9 +22,12 @@ class MediaInspectorTests(unittest.TestCase):
                 "width": 1920, "height": 1080, "avg_frame_rate": "30/1",
             }],
         }
-        with patch("video_editor.media_inspector._run") as run:
-            run.return_value = SimpleNamespace(stdout=json.dumps(payload))
-            result = probe_video("clip.mp4")
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "clip.mp4"
+            source.touch()
+            with patch("video_editor.media_inspector._run") as run:
+                run.return_value = SimpleNamespace(stdout=json.dumps(payload))
+                result = probe_video(source)
         self.assertEqual(result["duration"], 12.5)
         self.assertEqual(result["width"], 1920)
 
