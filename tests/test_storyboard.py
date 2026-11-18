@@ -52,8 +52,8 @@ class StoryboardTests(unittest.TestCase):
             ],
         )
         srt = (
-            "1\\n00:00:00,000 --> 00:00:02,000\\nGurita hidup di laut.\\n\\n"
-            "2\\n00:00:02,200 --> 00:00:06,000\\nGurita punya tentakel.\\n"
+            "1\n00:00:00,000 --> 00:00:02,000\nGurita hidup di laut.\n\n"
+            "2\n00:00:02,200 --> 00:00:06,000\nGurita punya tentakel.\n"
         )
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "voice.srt"
