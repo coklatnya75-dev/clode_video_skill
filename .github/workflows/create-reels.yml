@@ -1,0 +1,85 @@
+name: Create Reels Video
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: "Naskah narasi. Pisahkan setiap scene dengan titik."
+        required: true
+        type: string
+      output_name:
+        description: "Nama file MP4 hasil video"
+        required: true
+        default: "reels.mp4"
+        type: string
+      voice:
+        description: "Suara narator"
+        required: true
+        default: "id-ID-ArdiNeural"
+        type: choice
+        options:
+          - id-ID-ArdiNeural
+          - id-ID-GadisNeural
+
+permissions:
+  contents: read
+
+jobs:
+  render-reels:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+        with:
+          ref: feature/ai-video-editor
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install Python tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install edge-tts openai-whisper
+
+      - name: Prepare narration
+        env:
+          SCRIPT: ${{ inputs.script }}
+        run: |
+          mkdir -p work output
+          printf '%s\n' "$SCRIPT" > work/script.txt
+
+      - name: Find and download royalty-free footage
+        env:
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+        run: |
+          python -m video_editor.stock_media work/script.txt --output-dir work/media
+
+      - name: Generate voice, subtitles and render MP4
+        run: |
+          python -m video_editor.pipeline work/script.txt work/media/media_catalog.json \
+            --voice "${{ inputs.voice }}" \
+            --output-video "output/${{ inputs.output_name }}" \
+            --work-dir work/project \
+            --whisper-model base
+
+      - name: Save video and project files
+        uses: actions/upload-artifact@v4
+        with:
+          name: reels-video
+          path: |
+            output/*.mp4
+            work/project/storyboard.json
+            work/project/voiceover.mp3
+            work/project/subtitles/*.srt
+            work/media/media_catalog.json
+          if-no-files-found: error
+          retention-days: 7
